@@ -2,6 +2,7 @@
 import argparse
 from src.server import ClassificationServer
 import time
+
 class Args:
     @staticmethod
     def get_args():
@@ -55,12 +56,6 @@ class Args:
             help="model to train",
         )
         parser.add_argument(
-            "--model_path",
-            type=str,
-            default=None,
-            help="path to model's weight"
-        )
-        parser.add_argument(
             "--n_classes",
             type=int,
             default="3",
@@ -85,6 +80,7 @@ class Args:
             help="local epochs to perform on each client"
         )
         parser.add_argument("--pin_memory", action="store_true")
+        parser.add_argument("--load_weights", action="store_true")
         return parser.parse_args()
 
 def main() -> None:
@@ -93,10 +89,10 @@ def main() -> None:
     serv.configure_strategy()
     # TODO start server with certificates 
     serv.start()
-    serv.model.save("model.pt")
+    #serv.model.save()
     time.sleep(60)
+    serv.configure_strategy()
     serv.start()
-
 
 if __name__ == "__main__":
     main()

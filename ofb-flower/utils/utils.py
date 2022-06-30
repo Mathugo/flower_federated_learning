@@ -5,6 +5,7 @@ import torch, sys
 sys.path.append("..")
 from models import *
 from typing import List
+import matplotlib.pyplot as plt
 
 def get_weights(model: torch.nn.ModuleList) -> fl.common.Weights:
     """Get model weights as a list of NumPy ndarrays."""
@@ -23,4 +24,8 @@ def set_weights(model: torch.nn.ModuleList, weights: fl.common.Weights) -> None:
 def get_parameters(net) -> List[np.ndarray]:
     return [val.cpu().numpy() for _, val in net.state_dict().items()]
 
-
+def show_dataset(dataset, n=6):
+  img = np.vstack((np.hstack((np.asarray(dataset[i][0]) for _ in range(n)))
+                   for i in range(len(dataset))))
+  plt.imshow(img)
+  plt.axis('off')

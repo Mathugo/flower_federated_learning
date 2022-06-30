@@ -1,3 +1,9 @@
+server/data
+server/models
+labeling/dataset
+labeling/roboflow
+client/data
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

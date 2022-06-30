@@ -1,6 +1,6 @@
 from typing import Tuple
 import sys, torch
-from time import time
+from time import time as ti
 sys.path.append("..")
 from models import *
 # TODO Criterion focal loss for unbalanced dataset
@@ -21,7 +21,7 @@ def train(
     print(f"Training {epochs} epoch(s) w/ {len(trainloader)}  batches each -- Criterion {str(criterion)}")
     print("[Epochs | Iteration | Batch]")
 
-    t = time()
+    t = ti()
     # Train the network
     for epoch in range(epochs):  # loop over the dataset multiple times
         running_loss = 0.0
@@ -31,14 +31,11 @@ def train(
 
             # zero the parameter gradients
             optimizer.zero_grad()
-
             # forward + backward + optimize
             outputs = net(images)
             #print("Outputs {}\nlabels {} Size {}".format(outputs.shape, labels.shape, labels.size()))
-
             #labels = labels.view(32, 3)
             #outputs = outputs.view(32, 1, 1, 1)
-
             #loss = criterion(outputs, labels)
             loss = criterion(outputs, labels)
             loss.backward()
@@ -49,7 +46,7 @@ def train(
                 print("[%d, %d, %d] loss: %.3f" % (epoch + 1, i, i*len(images), running_loss / i))
                 #running_loss = 0.0
 
-    print(f"Epoch took: {time() - t:.2f} seconds")
+    print(f"Epoch took: {ti() - t:.2f} seconds")
 
 def test(
     net: Net,

@@ -1,6 +1,6 @@
 import client.src.pipeline as pl
 from torch.utils.data import DataLoader, random_split
-from client.src.pipeline.transforms import resnet18_transform, mobile_ViT_transform
+from client.src.pipeline.transforms import hugonet_transform, mobile_ViT_transform
 import torchvision, sys, os
 from typing import Dict
 sys.path.append("..")
@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Tuple
 from torchsummary import summary 
 import torch.nn as nn
+from torch.utils.data import ConcatDataset
 
 DATA_ROOT = Path("data")
 
@@ -35,23 +36,25 @@ def load_classify_datasets(dataset_dir: str, num_clients: int, transforms: Dict[
     testloader = DataLoader(d_test, batch_size=32)
     return trainloaders, valloaders, testloader
 
-def load_classify_dataset(dataset_dir: str, transforms: Dict[str, torchvision.transforms.Compose]) -> Tuple[pl.ClassifyDataset, pl.ClassifyDataset]:
+def load_classify_dataset(dataset_dir: str, transforms: Dict[str, torchvision.transforms.Compose], data_augmentation: bool=False) -> Tuple[pl.ClassifyDataset, pl.ClassifyDataset]:
     train = os.path.join(dataset_dir, "train")
     test = os.path.join(dataset_dir, "valid")
     d_train = pl.ClassifyDataset(train, transform=transforms["train"])
     d_test = pl.ClassifyDataset(test, transform=transforms["test"])
+    if data_augmentation:
+        d_aug = pl.ClassifyDataset(train, transform=transforms["aug"])
+        d_train = ConcatDataset([d_train, d_aug])
     return d_train, d_test
 
 def load_model(model_name: str, n_classes: int=3, input_shape: Tuple[int, int]= (3, 224, 224)) -> Tuple[nn.Module, Dict[str, torchvision.transforms.Compose]]:
     """ return a pytorch model and its associated transformation for training and testing """
     config = None
     if model_name == "HugoNet":
-        config = (HugoNet(), resnet18_transform)
+        config = (HugoNet(), hugonet_transform)
     elif model_name == "ResNet18":
-        config = (ResNet18(n_classes=n_classes), resnet18_transform)
+        config = (ResNet18(n_classes=n_classes), hugonet_transform)
     elif model_name == "ViT":
-        config = (ViT_B_16(n_classes=n_classes), resnet18_transform)
-        #return ViT(n_classes=n_classes, img_size=img_size, emb_size=98)
+        config = (ViT_B_16(n_classes=n_classes), mobile_ViT_transform)
     if config == None:
         raise NotImplementedError(f"model {model_name} is not implemented")
     summary(config[0], input_shape)

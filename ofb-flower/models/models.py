@@ -14,6 +14,7 @@ from torchvision.models.feature_extraction import get_graph_node_names
 from torchvision.models.feature_extraction import create_feature_extractor
 from torchvision.models import VisionTransformer
 import os
+from datetime import *
 
 # pylint: disable=unsubscriptable-object
 class Net(nn.Module):
@@ -133,7 +134,9 @@ class HugoNet(nn.Module):
         )
         self.load_state_dict(state_dict, strict=True)
     
-    def save(self, filename: str):
+    def save(self, filename: str=None):
+        if filename == None:
+            filename = "model-{}".format(datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
         filename =  os.path.join(self._model_folder, filename)
         print("[MODEL] Saving to {}".format(filename))
         torch.save(self.state_dict(), filename)

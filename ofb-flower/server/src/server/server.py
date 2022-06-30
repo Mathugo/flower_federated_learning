@@ -3,8 +3,9 @@ sys.path.append("..")
 import utils
 from typing import Dict
 import flwr as fl
-import torch, torchvision, os
+import torch, torchvision, os, glob
 from ..strategies import CustomModelStrategyFedAvg
+import numpy as np
 
 # pylint: disable=no-member
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -23,20 +24,30 @@ class ClassificationServer:
         assert (
         self._args.min_sample_size <= self._args.min_num_clients
         ), f"Num_clients shouldn't be lower than min_sample_size"
+        # TODO test other parameters
 
     def _load_config(self):
         print("[SERVER] Loading model and weights ..")
-        self._model, self._transforms = utils.load_model(self._args.model, self._args.n_classes)        
-        if self._args.model_path != None:
-            # TODO load_weight from .pt
-            pass
+        self._model, self._transforms = utils.load_model(self._args.model, self._args.n_classes)  
+
+        if self._args.load_weights:
+            # TODO load_weight from .pth
+            files = glob.glob(self._model.aggr_weight_folder+"/*.pth")
+            if len(files) != 0:
+                last_file = max(files, key=os.path.getctime)
+                print(f"[SERVER] Loading weights {last_file} ..")
+                w = torch.load(last_file)
+                self._model.load_state_dict(w)
+                print("[SERVER] Done")
+            else:
+                print(f"[SERVER] Args load_weights = {self._args.load_weights} but no files found at {self._model.aggr_weight_folder}")
         # initial weight
         self._model_weight = utils.get_weights(self._model)
 
     def configure_strategy(self) -> None:
         """configure strategy for aggregation, training and evaluation"""
         print("[SERVER] Configuring strategy ..")
-        self._strategy = CustomStrategyFedAvg(fraction_fit=self._args.fraction_fit,
+        self._strategy = CustomModelStrategyFedAvg(fraction_fit=self._args.fraction_fit,
         fraction_eval=self._args.fraction_eval,
         min_fit_clients=self._args.min_sample_size,
         min_eval_clients=self._args.min_sample_size,
@@ -44,6 +55,7 @@ class ClassificationServer:
         on_fit_config_fn=self._fit_config,
         on_evaluate_config_fn=self._evaluate_config,
         aggr_weight_folder=self._model.aggr_weight_folder,
+        model=self._model,
         initial_parameters=fl.common.weights_to_parameters(self._model_weight))
 
     def _evaluate_config(self, rnd: int):

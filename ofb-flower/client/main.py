@@ -3,8 +3,6 @@ import flwr as fl
 sys.path.append("..")
 from utils import load_model, load_classify_dataset
 from src.client import GearClassifyClient
-from src.pipeline import resnet18_transform
-from torchsummary import summary 
 
 # pylint: disable=no-member
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -47,6 +45,7 @@ class Args:
             default=3,
             help="number of classes to detect"
         )
+        parser.add_argument("--data_augmentation", action="store_true")
         return parser.parse_args()
 
 def main() -> None:
@@ -55,10 +54,11 @@ def main() -> None:
     # Configure logger
     fl.common.logger.configure(f"client_{args.cid}", host=args.log_host)
     model, trf = load_model(args.model, n_classes=args.n_classes)
-    trainset, testset = load_classify_dataset(args.data_dir, transforms=trf)
+    trainset, testset = load_classify_dataset(args.data_dir, transforms=trf, data_augmentation=args.data_augmentation)
     model.to(DEVICE)
 
     # Start client TODO if server not reachable, start the inference and load old weights 
+    
     client = GearClassifyClient(args.cid, model, trainset, testset)
     print("[CLIENT] Starting client ..")
     fl.client.start_client(args.server_address, client)
