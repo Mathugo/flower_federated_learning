@@ -2,13 +2,14 @@ from typing import Tuple
 import sys, torch
 from time import time as ti
 sys.path.append("..")
-from models import *
-# TODO Criterion focal loss for unbalanced dataset
+from models import FederatedModel
 from torchvision import datasets
+from torch import nn
+# TODO Criterion focal loss for unbalanced dataset
 
 datasets.CIFAR10
 def train(
-    net: Net,
+    net: FederatedModel,
     trainloader: torch.utils.data.DataLoader,
     epochs: int,
     device: torch.device,  # pylint: disable=no-member
@@ -49,7 +50,7 @@ def train(
     print(f"Epoch took: {ti() - t:.2f} seconds")
 
 def test(
-    net: Net,
+    net: FederatedModel,
     testloader: torch.utils.data.DataLoader,
     device: torch.device,  # pylint: disable=no-member
 ) -> Tuple[float, float]:

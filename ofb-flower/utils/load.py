@@ -1,3 +1,4 @@
+from ast import Raise
 import client.src.pipeline as pl
 from torch.utils.data import DataLoader, random_split
 from client.src.pipeline.transforms import hugonet_transform, mobile_ViT_transform
@@ -46,15 +47,26 @@ def load_classify_dataset(dataset_dir: str, transforms: Dict[str, torchvision.tr
         d_train = ConcatDataset([d_train, d_aug])
     return d_train, d_test
 
-def load_model(model_name: str, n_classes: int=3, input_shape: Tuple[int, int]= (3, 224, 224)) -> Tuple[nn.Module, Dict[str, torchvision.transforms.Compose]]:
-    """ return a pytorch model and its associated transformation for training and testing """
+def load_model(model_name: str, onServer: bool, n_classes: int=3, input_shape: Tuple[int, int]= (3, 224, 224)) -> Tuple[FederatedModel, Dict[str, torchvision.transforms.Compose]]:
+    """Return a pytorch model and its associated transformation for training and testing """
     config = None
+    # CNN Models
     if model_name == "HugoNet":
-        config = (HugoNet(), hugonet_transform)
+        config = (HugoNet(onServer), hugonet_transform)
+    # Resnet models
     elif model_name == "ResNet18":
-        config = (ResNet18(n_classes=n_classes), hugonet_transform)
+        config = (resnet18(3, n_classes), hugonet_transform)
+    elif model_name == "ResNet34":
+        config = (resnet34(3, n_classes), hugonet_transform)
+    elif model_name == "ResNet50":
+        config = (resnet50(3, n_classes), hugonet_transform)
+    elif model_name == "ResNet101":
+        config = (resnet101(3, n_classes), hugonet_transform)
+    elif model_name == "ResNet152":
+        config = (resnet34(3, n_classes), hugonet_transform)
+    # Transformers
     elif model_name == "ViT":
-        config = (ViT_B_16(n_classes=n_classes), mobile_ViT_transform)
+        raise NotImplementedError(f"model ViT is not implemented")
     if config == None:
         raise NotImplementedError(f"model {model_name} is not implemented")
     summary(config[0], input_shape)
@@ -62,19 +74,3 @@ def load_model(model_name: str, n_classes: int=3, input_shape: Tuple[int, int]= 
 
 def load_scripted_model(filename: str) -> nn.Module:
     return torch.jit.load(filename)  
-# pylint: disable=unused-argument
-def load_cifar(download=True) -> Tuple[datasets.CIFAR10, datasets.CIFAR10]:
-    """Load CIFAR-10 (training and test set)."""
-    transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ]
-    )
-    trainset = datasets.CIFAR10(
-        root=DATA_ROOT / "cifar-10", train=True, download=download, transform=transform
-    )
-    testset = datasets.CIFAR10(
-        root=DATA_ROOT / "cifar-10", train=False, download=download, transform=transform
-    )
-    return trainset, testset

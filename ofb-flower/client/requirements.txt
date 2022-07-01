@@ -5,3 +5,5 @@ pandas
 scikit-image
 numpy
 glob
+timm
+requests

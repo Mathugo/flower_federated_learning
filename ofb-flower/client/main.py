@@ -1,7 +1,8 @@
 import argparse, torch, sys
+from matplotlib import pyplot as plt
 import flwr as fl
 sys.path.append("..")
-from utils import load_model, load_classify_dataset
+from utils import load_model, load_classify_dataset, show_dataset
 from src.client import GearClassifyClient
 
 # pylint: disable=no-member
@@ -36,7 +37,7 @@ class Args:
             "--model",
             type=str,
             default="ResNet18",
-            choices=["HugoNet", "ResNet18", "ViT"],
+            choices=["HugoNet", "ResNet18", "ResNet34","ResNet50", "ResNet101", "ResNet152", "ViT"],
             help="model to train",
         )
         parser.add_argument(
@@ -53,16 +54,16 @@ def main() -> None:
     args = Args.get_args()
     # Configure logger
     fl.common.logger.configure(f"client_{args.cid}", host=args.log_host)
-    model, trf = load_model(args.model, n_classes=args.n_classes)
+    model, trf = load_model(args.model, False, n_classes=args.n_classes)
     trainset, testset = load_classify_dataset(args.data_dir, transforms=trf, data_augmentation=args.data_augmentation)
     model.to(DEVICE)
-
+    #model.save_pqt_quantized(testset[0])
     # Start client TODO if server not reachable, start the inference and load old weights 
-    
     client = GearClassifyClient(args.cid, model, trainset, testset)
     print("[CLIENT] Starting client ..")
     fl.client.start_client(args.server_address, client)
 
 if __name__ == "__main__":
     main()
+
 
