@@ -5,6 +5,8 @@ sys.path.append("..")
 from models import FederatedModel
 from torchvision import datasets
 from torch import nn
+import mlflow
+
 # TODO Criterion focal loss for unbalanced dataset
 
 datasets.CIFAR10
@@ -12,32 +14,31 @@ def train(
     net: FederatedModel,
     trainloader: torch.utils.data.DataLoader,
     epochs: int,
-    device: torch.device,  # pylint: disable=no-member
+    device: torch.device,
+    lr: float=0.001,
+    momentum: float=0.9,
+    mlflow_log: bool= True,
 ) -> None:
     """Train the network."""
     # Define loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    criterion_str = str(criterion).replace("()","")
+    optimizer = torch.optim.SGD(net.parameters(), lr=lr, momentum=momentum)
 
     print(f"Training {epochs} epoch(s) w/ {len(trainloader)}  batches each -- Criterion {str(criterion)}")
     print("[Epochs | Iteration | Batch]")
 
     t = ti()
-    # Train the network
+    # Train the network    
     for epoch in range(epochs):  # loop over the dataset multiple times
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
             #print("{}/{}".format(i, len(trainloader)))
             images, labels = data[0].to(device), data[1].to(device)
-
             # zero the parameter gradients
             optimizer.zero_grad()
             # forward + backward + optimize
             outputs = net(images)
-            #print("Outputs {}\nlabels {} Size {}".format(outputs.shape, labels.shape, labels.size()))
-            #labels = labels.view(32, 3)
-            #outputs = outputs.view(32, 1, 1, 1)
-            #loss = criterion(outputs, labels)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -46,6 +47,11 @@ def train(
             if i != 0 and i%5: 
                 print("[%d, %d, %d] loss: %.3f" % (epoch + 1, i, i*len(images), running_loss / i))
                 #running_loss = 0.0
+        if mlflow_log:
+            with mlflow.start_run(run_name='One epochs'):
+                mlflow.log_metric(f"{criterion_str}", loss)
+                mlflow.log_param("epoch", f"{epoch}")
+                mlflow.log_param("momentum", f"{momentum}")            
 
     print(f"Epoch took: {ti() - t:.2f} seconds")
 
@@ -53,29 +59,35 @@ def test(
     net: FederatedModel,
     testloader: torch.utils.data.DataLoader,
     device: torch.device,  # pylint: disable=no-member
+    mlflow_log: bool=True
 ) -> Tuple[float, float]:
     """Validate the network on the entire test set."""
     criterion = nn.CrossEntropyLoss()
+    criterion_str = str(criterion).replace("()","")
     correct = 0
     total = 0
     loss = 0.0
-    print_interval = 10
     print("[Sample | Batch] -- Criterion {}".format(str(criterion)))
-
+    
     with torch.no_grad():
         for i, data in enumerate(testloader, 0):
             images, labels = data[0].to(device), data[1].to(device)
             outputs = net(images)
-            #print("Outputs shape : {} Labels {}".format(outputs.shape, labels.shape))
-            #print("Outputs {}\n Labels {}\n Max predicted {} Max labels {}".format(outputs, labels, torch.max(outputs.data, -1), torch.max(labels.data, -1)))
             loss += criterion(outputs, labels).item()
             _, predicted = torch.max(outputs.data, -1)  # pylint: disable=no-member
             _, labels = torch.max(labels, -1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-            #if (i+1)%print_interval == 0: 
+            accuracy = round((correct / total), 3)
+
+            if mlflow_log:
+                with mlflow.start_run(run_name='test'):
+                    mlflow.log_metric("accuray", f"{accuracy}")
+                    mlflow.log_metric(f"{criterion_str}", loss)
+
             if i!= 0 and i%5:
-                print("[%d, %d] loss: %.3f accuracy %.3f" % ( i+ 1, i*len(images), loss/i, (correct / total)*100) )
+                print("[%d, %d] loss: %.3f accuracy %.3f" % ( i+ 1, i*len(images), loss/i, accuracy) )
 
     accuracy = correct / total
+
     return loss, accuracy
