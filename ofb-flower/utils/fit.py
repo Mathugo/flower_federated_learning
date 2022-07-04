@@ -47,11 +47,11 @@ def train(
             if i != 0 and i%5: 
                 print("[%d, %d, %d] loss: %.3f" % (epoch + 1, i, i*len(images), running_loss / i))
                 #running_loss = 0.0
-        if mlflow_log:
-            with mlflow.start_run(run_name='One epochs'):
-                mlflow.log_metric(f"{criterion_str}", loss)
-                mlflow.log_param("epoch", f"{epoch}")
-                mlflow.log_param("momentum", f"{momentum}")            
+
+        with mlflow.start_run(run_name=f"{epoch}-epochs"):
+            mlflow.log_metric(f"{criterion_str}", loss)
+            mlflow.log_param("epoch", f"{epoch}")
+            mlflow.log_param("momentum", f"{momentum}")            
 
     print(f"Epoch took: {ti() - t:.2f} seconds")
 
@@ -79,15 +79,11 @@ def test(
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
             accuracy = round((correct / total), 3)
-
-            if mlflow_log:
-                with mlflow.start_run(run_name='test'):
-                    mlflow.log_metric("accuray", f"{accuracy}")
-                    mlflow.log_metric(f"{criterion_str}", loss)
-
             if i!= 0 and i%5:
                 print("[%d, %d] loss: %.3f accuracy %.3f" % ( i+ 1, i*len(images), loss/i, accuracy) )
-
+    with mlflow.start_run(run_name='test'):
+        mlflow.log_metric("accuray", f"{accuracy}")
+        mlflow.log_metric(f"{criterion_str}", loss)
     accuracy = correct / total
 
     return loss, accuracy

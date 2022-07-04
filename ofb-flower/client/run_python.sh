@@ -1,0 +1,1 @@
+python3 main.py --name usine_one --server_address localhost:4445 --cid 1 --model HugoNet --n_classes=3 --data_augmentation

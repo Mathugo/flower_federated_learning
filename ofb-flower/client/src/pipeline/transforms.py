@@ -1,4 +1,3 @@
-import PIL
 from torchvision import transforms
 from imgaug import augmenters as iaa
 import imgaug as ia

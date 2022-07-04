@@ -1,8 +1,11 @@
 """Flower client example using PyTorch for Gear image classification."""
-import torch, timeit, utils
+import torch, timeit
 import flwr as fl
 from flwr.common import EvaluateIns, EvaluateRes, FitIns, FitRes, ParametersRes, Weights
 from ..pipeline import ClassifyDataset
+from utils.utils import set_weights, get_weights
+from utils.fit import train
+from utils.mlflow_client import MLFlowClient
 
 # pylint: disable=no-member
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -10,11 +13,12 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class GearClassifyClient(fl.client.Client):
     """Flower client implementing Gear image classification using PyTorch."""
-    def __init__(self, cid: str, model: torch.nn.Module, trainset: ClassifyDataset, testset: ClassifyDataset) -> None:
+    def __init__(self, cid: str, model: torch.nn.Module, trainset: ClassifyDataset, testset: ClassifyDataset, mlflow_client: MLFlowClient) -> None:
         self.cid = cid
         self._model = model
         self._trainset = trainset
         self._testset = testset
+        self._mlflow_client = mlflow_client
 
     def get_parameters(self) -> None:
         """Get parameters of the local model."""
@@ -36,7 +40,7 @@ class GearClassifyClient(fl.client.Client):
 
         print("[CLIENT] Fitting ..")
         # Set model parameters
-        utils.set_weights(self._model, weights)
+        set_weights(self._model, weights)
         if torch.cuda.is_available():
             kwargs = {
                 "num_workers": num_workers,
@@ -50,10 +54,10 @@ class GearClassifyClient(fl.client.Client):
             self._trainset, batch_size=batch_size, shuffle=True, **kwargs
         )
         print("Len train dataset {} len trailoader {}".format(len(self._trainset), len(trainloader)))
-        utils.train(self._model, trainloader, epochs=epochs, device=DEVICE)
+        train(self._model, trainloader, epochs=epochs, device=DEVICE)
         print("[CLIENT] Done")
         # Return the refined weights and the number of examples used for training
-        weights_prime: Weights = utils.get_weights(self._model)
+        weights_prime: Weights = get_weights(self._model)
         params_prime = fl.common.weights_to_parameters(weights_prime)
         num_examples_train = len(self._trainset)
         metrics = {"duration": timeit.default_timer() - fit_begin}

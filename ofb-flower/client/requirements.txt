@@ -7,3 +7,4 @@ numpy
 glob
 timm
 requests
+mlflow-skinny
