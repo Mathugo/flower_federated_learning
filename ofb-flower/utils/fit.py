@@ -17,9 +17,9 @@ def train(
     device: torch.device,
     lr: float=0.001,
     momentum: float=0.9,
-    mlflow_log: bool= True,
-) -> None:
+    ) -> None:
     """Train the network."""
+
     # Define loss and optimizer
     criterion = nn.CrossEntropyLoss()
     criterion_str = str(criterion).replace("()","")
@@ -47,21 +47,25 @@ def train(
             if i != 0 and i%5: 
                 print("[%d, %d, %d] loss: %.3f" % (epoch + 1, i, i*len(images), running_loss / i))
                 #running_loss = 0.0
-
+        with mlflow.start_run(nested=True, run_name=f"train-epoch-{epoch}"):
+            mlflow.log_metric(f"{criterion_str}", loss)
+            mlflow.log_param("epoch", f"{epoch}")
+            mlflow.log_param("momentum", f"{momentum}")    
+    """
         with mlflow.start_run(run_name=f"{epoch}-epochs"):
             mlflow.log_metric(f"{criterion_str}", loss)
             mlflow.log_param("epoch", f"{epoch}")
             mlflow.log_param("momentum", f"{momentum}")            
-
+    """
     print(f"Epoch took: {ti() - t:.2f} seconds")
 
 def test(
     net: FederatedModel,
     testloader: torch.utils.data.DataLoader,
     device: torch.device,  # pylint: disable=no-member
-    mlflow_log: bool=True
-) -> Tuple[float, float]:
+    ) -> Tuple[float, float]:
     """Validate the network on the entire test set."""
+
     criterion = nn.CrossEntropyLoss()
     criterion_str = str(criterion).replace("()","")
     correct = 0
@@ -78,12 +82,28 @@ def test(
             _, labels = torch.max(labels, -1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+
             accuracy = round((correct / total), 3)
             if i!= 0 and i%5:
                 print("[%d, %d] loss: %.3f accuracy %.3f" % ( i+ 1, i*len(images), loss/i, accuracy) )
-    with mlflow.start_run(run_name='test'):
-        mlflow.log_metric("accuray", f"{accuracy}")
-        mlflow.log_metric(f"{criterion_str}", loss)
-    accuracy = correct / total
+        
+        with mlflow.start_run(nested=True, run_name=f"test-batch-{i}"):
+            mlflow.log_metric("accuray", f"{accuracy}")
+            mlflow.log_metric(f"{criterion_str}", loss)
 
+    # Push client local model to cloud
+    # Test if accuracy improved 
+    # with mlflow.start_run() as run:
+    #    mlflow.pytorch.log_model(net, net.Basename)
+    accuracy = correct / total
     return loss, accuracy
+
+# TODO Confusion Matrix and Classification Report : (f1, recall, precision)
+
+"""
+from sklearn.metrics import confusion_matrix, classification_report
+confusion_matrix_df = pd.DataFrame(confusion_matrix(y_test, y_pred_list)).rename(columns=idx2class, index=idx2class)
+sns.heatmap(confusion_matrix_df, annot=True)
+#print(classification_report(y_test, y_pred_list))
+
+"""

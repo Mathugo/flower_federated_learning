@@ -1,8 +1,7 @@
 """Minimal example on how to start a simple Flower server."""
 from src.server import ClassificationServer
 from src.app.args import Args
-from utils import MLFlowClient
-import time
+import time, sys
 
 def main() -> None:
     """Start server and train five rounds."""
@@ -10,10 +9,11 @@ def main() -> None:
     serv.configure_strategy()
     # TODO start server with certificates 
     serv.start()
+
     #serv.model.save()
-    time.sleep(60)
-    serv.configure_strategy()
-    serv.start()
+    #time.sleep(60)
+    #serv.configure_strategy()
+    #serv.start()
 
 if __name__ == "__main__":
     main()

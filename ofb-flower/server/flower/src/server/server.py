@@ -17,7 +17,7 @@ class ClassificationServer:
         self._mlflow_client = MLFlowClient("server", args.mlflow_server_ip, args.mlflow_server_port)
 
     def _test_given_parameters(self):
-        print("[SERVER] Config {}".format(self._args))
+        print("[SERVER] Config {}".format(self._args), file=sys.stderr)
         """Test if parameters are ok"""
         assert (
         self._args.min_sample_size <= self._args.min_num_clients
@@ -33,18 +33,18 @@ class ClassificationServer:
             files = glob.glob(self._model.aggr_weight_folder+"/*.pth")
             if len(files) != 0:
                 last_file = max(files, key=os.path.getctime)
-                print(f"[SERVER] Loading weights {last_file} ..")
+                print(f"[SERVER] Loading weights {last_file} ..", file=sys.stderr)
                 w = torch.load(last_file)
                 self._model.load_state_dict(w)
-                print("[SERVER] Done")
+                print("[SERVER] Done", file=sys.stderr)
             else:
-                print(f"[SERVER] Args load_weights = {self._args.load_weights} but no files found at {self._model.aggr_weight_folder}")
+                print(f"[SERVER] Args load_weights = {self._args.load_weights} but no files found at {self._model.aggr_weight_folder}",  file=sys.stderr)
         # initial weight
         self._model_weight = get_weights(self._model)
 
     def configure_strategy(self) -> None:
         """configure strategy for aggregation, training and evaluation"""
-        print("[SERVER] Configuring strategy ..")
+        print("[SERVER] Configuring strategy ..", file=sys.stderr)
         self._strategy = CustomModelStrategyFedAvg(fraction_fit=self._args.fraction_fit,
         fraction_eval=self._args.fraction_eval,
         min_fit_clients=self._args.min_sample_size,
@@ -82,6 +82,7 @@ class ClassificationServer:
         """Start server"""
         # Run server
         # Configure logger
+        print(f"[SERVER] Listening to {self._args.server_address} ..", file=sys.stderr)
         fl.common.logger.configure("server", host=self._args.log_host)
         # Create client_manager, strategy, and server
         self._client_manager = fl.server.SimpleClientManager()

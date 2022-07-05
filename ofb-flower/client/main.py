@@ -17,11 +17,14 @@ def main() -> None:
 
     mlflow_client = MLFlowClient(args.name, args.mlflow_server_ip, args.mlflow_server_port)
     #model.save_pqt_quantized(testset[0])
-
     # Start client TODO if server not reachable, start the inference and load old weights 
     client = GearClassifyClient(args.cid, model, trainset, testset, mlflow_client=mlflow_client)
-    print("[CLIENT] Starting client ..")
-    fl.client.start_client(args.server_address, client)
+    addr = f"{args.server_address}:{args.server_port}"
+    print(f"[CLIENT] Starting client to {addr}")
+
+    # each time you start client -> start ml experiment 
+    mlflow_client.new_experiment(f"{args.cid}-{mlflow_client.ClientName}")
+    fl.client.start_client(addr, client)
 
 if __name__ == "__main__":
     main()

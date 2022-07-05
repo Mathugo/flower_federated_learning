@@ -66,10 +66,17 @@ class CustomModelStrategyFedAvg(fl.server.strategy.FedAvg):
         self._last_accuracy_aggregated = sum(accuracies) / sum(examples)
         print(f"[EVAL] Round {rnd} accuracy aggregated from client results: {self._last_accuracy_aggregated} %")
 
-        with mlflow.start_run(run_name=f"{rnd}-round"):
+        with mlflow.start_run(run_name=f"{rnd}-round") as run:
             mlflow.log_metric("Aggregated Acc", self._last_accuracy_aggregated)
             mlflow.log_param("Num examples", f"{sum(examples)}")
             mlflow.log_param("Failures", f"{failures}")
+            #TODO if run with best aggregated accuracies -> we push to artefact
+            run_id = run.info.run_id
+            print(f"[SERVER] Run ID {run_id}")
+            #mlflow.register_model(
+            #    f"runs:/{run_id}/{self._model.Basename}",
+            #    self._model.Basename
+            #)
 
         # Call aggregate_evaluate from base class (FedAvg)
         return super().aggregate_evaluate(rnd, results, failures)

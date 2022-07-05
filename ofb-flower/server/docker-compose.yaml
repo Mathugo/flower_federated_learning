@@ -8,13 +8,13 @@ services:
         dockerfile: ./server/flower/Dockerfile
       container_name: flower
       expose:
-        - "4445"
+        - "$FLWR_PORT"
       networks:
         - backend
       environment:
         - N_CLASSES=${N_CLASSES}
-        - SERVER_ADDRESS=${SERVER_ADDRESS}
-        - PORT=${PORT}
+        - FLWR_ADDRESS=${FLWR_ADDRESS}
+        - FLWR_PORT=${FLWR_PORT}
         - ROUNDS=${ROUNDS}
         - FRACTION_FIT=${FRACTION_FIT}
         - FRACTION_EVAL=${FRACTION_EVAL}
@@ -24,7 +24,7 @@ services:
         - BATCH_SIZE=${BATCH_SIZE}
         - NUM_WORKERS=${NUM_WORKERS}
         - LOCAL_EPOCHS=${LOCAL_EPOCHS}
-      command: python3 main.py --server_address ${SERVER_ADDRESS}:${PORT} --mlflow_server_ip $MLFLOW_HOST --mlflow_server_port $MLFLOW_PORT --rounds ${ROUNDS} --fraction_fit ${FRACTION_FIT} --fraction_eval ${FRACTION_EVAL} --min_sample_size ${MIN_SAMPLE_SIZE} --local_epochs ${LOCAL_EPOCHS} --load_weights --model HugoNet --n_classes ${N_CLASSES} --batch_size ${BATCH_SIZE} 
+      command: python3 main.py --server_address ${FLWR_ADDRESS}:${FLWR_PORT} --mlflow_server_ip ${MLFLOW_HOST} --mlflow_server_port ${MLFLOW_PORT} --rounds ${ROUNDS} --fraction_fit ${FRACTION_FIT} --fraction_eval ${FRACTION_EVAL} --min_sample_size ${MIN_SAMPLE_SIZE} --local_epochs ${LOCAL_EPOCHS} --load_weights --model HugoNet --n_classes ${N_CLASSES} --batch_size ${BATCH_SIZE} 
     sftp:
         restart: always
         image: emberstack/sftp
@@ -33,6 +33,8 @@ services:
         volumes:
             - ./config/sftp.json:/app/config/sftp.json:ro
         container_name: sftp
+        networks:
+            - backend
     db:
         restart: always
         image: mysql/mysql-server:8.0.29
@@ -58,8 +60,7 @@ services:
         networks:
             - frontend
             - backend
-        command: mlflow server --default-artifact-root sftp://sftp:$SFTP_PWD@$SFTP_USER:$SFTP_PORT --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE} --host 0.0.0.0        
-
+        command: mlflow server --default-artifact-root sftp://sftp:${SFTP_PWD}@${SFTP_USER}:${SFTP_PORT} --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE} --host 0.0.0.0 --port ${MLFLOW_PORT}      
     nginx:
         restart: always
         build: ./nginx
@@ -71,7 +72,6 @@ services:
             - frontend
         depends_on:
             - web
-            
 networks:
     frontend:
         driver: bridge

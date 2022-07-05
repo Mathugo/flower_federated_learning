@@ -1,3 +1,3 @@
 #!bin/bash
-docker compose up -d --build --wait 
-docker compose logs
+docker compose up --build --wait --remove-orphans --force-recreate sftp db web nginx flower 
+docker compose logs --follow

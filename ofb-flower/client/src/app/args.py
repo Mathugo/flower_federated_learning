@@ -11,6 +11,13 @@ class Args:
             help=f"gRPC server address",
         )
         parser.add_argument(
+            "--server_port",
+            type=str,
+            required=False,
+            default=5000, 
+            help=f"gRPC server port"
+        )
+        parser.add_argument(
             "--cid", type=str, required=True, help="Client CID (no default)"
         )
         parser.add_argument(
