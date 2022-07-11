@@ -87,7 +87,7 @@ class ClassificationServer:
         # Create client_manager, strategy, and server
         self._client_manager = fl.server.SimpleClientManager()
         self._server = fl.server.Server(client_manager=self._client_manager, strategy=self._strategy)
-        self._mlflow_client.new_experiment("Server-aggregation")
+        self._mlflow_client.set_experiment("Server-aggregation")
         fl.server.start_server(
             server_address=self._args.server_address,
             server=self._server,

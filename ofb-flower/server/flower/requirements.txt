@@ -8,3 +8,5 @@ matplotlib
 einops
 scikit-image
 imgaug
+pytorch_lightning
+pysftp

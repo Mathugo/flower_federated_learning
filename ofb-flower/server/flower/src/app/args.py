@@ -1,8 +1,9 @@
 import argparse
+from os import environ
 
 class Args:
     @staticmethod
-    def get_args():
+    def get_args():        
         parser = argparse.ArgumentParser(description="Flower")
         parser.add_argument(
             "--server_address",

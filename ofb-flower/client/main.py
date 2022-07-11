@@ -23,7 +23,7 @@ def main() -> None:
     print(f"[CLIENT] Starting client to {addr}")
 
     # each time you start client -> start ml experiment 
-    mlflow_client.new_experiment(f"{args.cid}-{mlflow_client.ClientName}")
+    mlflow_client.set_experiment(f"{args.cid}-{mlflow_client.ClientName}")
     fl.client.start_client(addr, client)
 
 if __name__ == "__main__":

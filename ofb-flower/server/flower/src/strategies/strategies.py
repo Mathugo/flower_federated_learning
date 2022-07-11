@@ -24,6 +24,7 @@ class CustomModelStrategyFedAvg(fl.server.strategy.FedAvg):
         results: List[Tuple[fl.server.client_proxy.ClientProxy, fl.common.FitRes]],
         failures: List[BaseException],
     ) -> Optional[fl.common.Weights]:
+        """Aggregate weights of clients after rounds"""
         aggregated_parameters_tuple = super().aggregate_fit(rnd, results, failures)
         aggregated_parameters, _ = aggregated_parameters_tuple
 
@@ -73,10 +74,11 @@ class CustomModelStrategyFedAvg(fl.server.strategy.FedAvg):
             #TODO if run with best aggregated accuracies -> we push to artefact
             run_id = run.info.run_id
             print(f"[SERVER] Run ID {run_id}")
-            #mlflow.register_model(
-            #    f"runs:/{run_id}/{self._model.Basename}",
-            #    self._model.Basename
-            #)
+            mlflow.register_model(
+                f"runs:/{run_id}/{self._model.Basename}",
+                self._model.Basename
+            )
+            mlflow.pytorch.log_model(self._model, "model")
 
         # Call aggregate_evaluate from base class (FedAvg)
         return super().aggregate_evaluate(rnd, results, failures)
