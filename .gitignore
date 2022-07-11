@@ -1,8 +1,12 @@
-server/data
-server/models
+server/flower/data
 labeling/dataset
 labeling/roboflow
-client/data
+ofb-flower/client/data
+ofb-flower/server/dbdata/*
+ofb-flower/server/mlflow_storage/*
+ofb-flower/server/flower/models
+ofb-flower/server/flower/models/hugonet/aggr_weights
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
