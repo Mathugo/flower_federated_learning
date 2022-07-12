@@ -1,3 +1,4 @@
 #!bin/bash
-docker compose up --build --wait --remove-orphans --force-recreate sftp db web nginx flower 
+docker compose up --build --wait --remove-orphans --force-recreate db web nginx flower 
+#docker inspect mlflow
 docker compose logs --follow

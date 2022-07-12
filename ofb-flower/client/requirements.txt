@@ -9,3 +9,4 @@ timm
 requests
 mlflow-skinny
 pytorch_lightning
+pysftp

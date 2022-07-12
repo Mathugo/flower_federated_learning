@@ -38,9 +38,10 @@ class Args:
             "--model",
             type=str,
             default="ResNet18",
-            choices=["HugoNet", "ResNet18", "ResNet34","ResNet50", "ResNet101", "ResNet152", "ViT"],
+            choices=["hugonet", "ResNet18", "ResNet34","ResNet50", "ResNet101", "ResNet152", "ViT"],
             help="model to train",
         )
+
         parser.add_argument(
             "--n_classes",
             type=int,
@@ -60,4 +61,5 @@ class Args:
             help="Port of the mlflow server"
         )
         parser.add_argument("--data_augmentation", action="store_true")
+        parser.add_argument("--load_mlflow_model", action="store_true")
         return parser.parse_args()

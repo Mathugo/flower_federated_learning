@@ -1,1 +1,1 @@
-python3 main.py --name usine_three --server_address 0.0.0.0 --server_port 4050 --cid 10 --model HugoNet --n_classes=3 --data_augmentation --mlflow_server_ip 0.0.0.0 --mlflow_server_port 4004
+python3 main.py --name $1 --server_address 0.0.0.0 --server_port 4042 --cid $2 --model hugonet --n_classes=3 --data_augmentation --mlflow_server_ip 0.0.0.0 --mlflow_server_port 80

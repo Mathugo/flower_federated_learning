@@ -1,17 +1,6 @@
 version: '3.3'
 
 services:
-    ftp:
-        image: delfer/alpine-ftp-server
-        restart: always
-        container_name: ftp
-        ports:
-            - ${FTP_PORT}:21
-            - 21000-21010:21000-21010
-        environment:
-            - USERS=${FTP_USER}|${FTP_PASS}|/home/
-        volumes:
-            - ./mlflow/storage/artifacts:/home           
     flower:
       restart: always
       build:
@@ -37,7 +26,8 @@ services:
         - BATCH_SIZE=${BATCH_SIZE}
         - NUM_WORKERS=${NUM_WORKERS}
         - LOCAL_EPOCHS=${LOCAL_EPOCHS}
-      command: python3 main.py --server_address ${FLWR_ADDRESS}:${FLWR_PORT} --mlflow_server_ip ${MLFLOW_HOST} --mlflow_server_port ${MLFLOW_PORT} --rounds ${ROUNDS} --fraction_fit ${FRACTION_FIT} --fraction_eval ${FRACTION_EVAL} --min_sample_size ${MIN_SAMPLE_SIZE} --local_epochs ${LOCAL_EPOCHS} --load_weights --model HugoNet --n_classes ${N_CLASSES} --num_workers=${NUM_WORKERS} --batch_size ${BATCH_SIZE} 
+        - MODEL=${MODEL}
+      command: python3 main.py --server_address ${FLWR_ADDRESS}:${FLWR_PORT} --mlflow_server_ip ${MLFLOW_HOST} --mlflow_server_port ${MLFLOW_PORT} --load_mlflow_model --rounds ${ROUNDS} --fraction_fit ${FRACTION_FIT} --fraction_eval ${FRACTION_EVAL} --min_sample_size ${MIN_SAMPLE_SIZE} --local_epochs ${LOCAL_EPOCHS} --model ${MODEL} --n_classes ${N_CLASSES} --num_workers=${NUM_WORKERS} --batch_size ${BATCH_SIZE} 
     db:
         restart: always
         image: mysql/mysql-server:8.0.29
@@ -64,7 +54,7 @@ services:
             - frontend
             - backend
         # ftp://${FTP_USER}:${FTP_PASS}@${FTP_HOST}/var/
-        command: mlflow server --default-artifact-root file:$PWD/mlflow/storage/artifacts --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE} --host 0.0.0.0 --port ${MLFLOW_PORT}      
+        command: mlflow server --default-artifact-root file:$PWD/mlflow/storage --backend-store-uri mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE} --host 0.0.0.0 --port ${MLFLOW_PORT}      
     nginx:
         restart: always
         build: ./nginx

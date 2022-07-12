@@ -6,7 +6,7 @@ import numpy as np
 class ImgAugTransform:
   def __init__(self):
     self.aug = iaa.Sequential([
-        iaa.Scale((224, 224)),
+        iaa.Resize((224, 224)),
         iaa.Sometimes(0.25, iaa.GaussianBlur(sigma=(0, 3.0))),
         iaa.Fliplr(0.5),
         iaa.Flipud(0.2),

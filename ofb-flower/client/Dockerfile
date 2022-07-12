@@ -18,4 +18,7 @@ ADD client/main.py ./main.py
 ADD utils ./src/utils
 ADD models ./src/models
 
+# don't forget to add ssh key for the sftp server 
+
+
 #ENTRYPOINT ["python3","-u","./main.py"]

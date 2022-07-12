@@ -6,15 +6,16 @@ from utils.mlflow_client import MLFlowClient
 from ..strategies import CustomModelStrategyFedAvg
 from typing import Dict
 import flwr as fl
-import torch, os, glob
+import torch, os, glob, mlflow
 
 class ClassificationServer:
     def __init__(self, args: argparse.ArgumentParser):
         """Federated Server: server-side parameter initialization"""
         self._args=args
+        self._model_registered_name = f"aggregated-{self._args.model}"
+        self._mlflow_client = MLFlowClient("server", args.mlflow_server_ip, args.mlflow_server_port)
         self._test_given_parameters()
         self._load_config()
-        self._mlflow_client = MLFlowClient("server", args.mlflow_server_ip, args.mlflow_server_port)
 
     def _test_given_parameters(self):
         print("[SERVER] Config {}".format(self._args), file=sys.stderr)
@@ -24,11 +25,8 @@ class ClassificationServer:
         ), f"Num_clients shouldn't be lower than min_sample_size"
         # TODO test other parameters
 
-    def _load_config(self):
-        print("[SERVER] Loading model and weights ..")
-        self._model, self._transforms = load_model(self._args.model, self._args.n_classes)  
-
-        if self._args.load_weights:
+    def _load_model_from_folder(self):
+        if self._args.load_model_from_folder:
             # TODO load_weight from .pth
             files = glob.glob(self._model.aggr_weight_folder+"/*.pth")
             if len(files) != 0:
@@ -40,11 +38,18 @@ class ClassificationServer:
             else:
                 print(f"[SERVER] Args load_weights = {self._args.load_weights} but no files found at {self._model.aggr_weight_folder}",  file=sys.stderr)
         # initial weight
-        self._model_weight = get_weights(self._model)
+
+    def _load_config(self):
+        print("[SERVER] Loading model and weights ..")
+        self._model, self._transforms = load_model(self._args.model, self._args.n_classes, load_mlflow_model=self._args.load_mlflow_model, registered_model_name=self._model_registered_name)  
+
+        if not self._args.load_mlflow_model:
+            self._load_model_from_folder()
+        else: 
+            self._model_weight = self._model.get_weights()
 
     def configure_strategy(self) -> None:
         """configure strategy for aggregation, training and evaluation"""
-        print("[SERVER] Configuring strategy ..", file=sys.stderr)
         self._strategy = CustomModelStrategyFedAvg(fraction_fit=self._args.fraction_fit,
         fraction_eval=self._args.fraction_eval,
         min_fit_clients=self._args.min_sample_size,
@@ -54,7 +59,8 @@ class ClassificationServer:
         on_evaluate_config_fn=self._evaluate_config,
         aggr_weight_folder=self._model.aggr_weight_folder,
         model=self._model,
-        mlflow_client=self._mlflow_client,
+        registred_model_name=self._registered_model_name,
+        save_weights=False,
         initial_parameters=fl.common.weights_to_parameters(self._model_weight))
 
     def _evaluate_config(self, rnd: int):

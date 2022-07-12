@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Tuple, List
+from typing import Dict, Tuple, List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,22 +8,62 @@ from torch import Tensor
 from torchvision.models import resnet18, convnext_tiny, mobilenet_v3_small, vit_b_16, vit_l_16
 from .vit_modules import *
 import flwr as fl
+import pytorch_lightning as pl
 from torchvision.models.feature_extraction import get_graph_node_names
 from torchvision.models.feature_extraction import create_feature_extractor
 from torchvision.models import VisionTransformer
 import os
 from .resnet_modules import *
 from datetime import *
+try:
+    from torchmetrics.functional import accuracy
+except ImportError:
+    from pytorch_lightning.metrics.functional import accuracy
 
 class QuantizedModel(nn.Module):
     """Base class for quantized models"""
     def __init__(self):
         pass
 
+class PlModel(pl.LightningModule):
+    def __init__(self, *args, **kwargs):
+        super(PlModel, self).__init__(*args, **kwargs)
+        self._criterion = F.cross_entropy
+
+    def test_step(self, batch, batch_idx) -> float:
+        x, y = batch
+        output = self(x)
+        loss = self._criterion(output, y).item()
+        _, predicted = torch.max(output.data, -1)  # pylint: disable=no-member
+        _, labels = torch.max(y, -1)
+        total = labels.size(0)
+        correct = (predicted == labels).sum().item()
+        accuracy = round((correct / total), 3)
+        
+        # Use the current of Pytorch logger
+        self.log("train_loss", loss)
+        self.log("acc", accuracy)
+        return accuracy
+
+    def test_epoch_end(self, outputs):
+        return sum(outputs) / len(outputs)
+
+    def training_step(self, batch, batch_nb):
+        x, y = batch
+        logits = self(x)
+        loss = self._criterion(logits, y)
+        # Use the current of PyTorch logger
+        self.log("train_loss", loss, on_epoch=True)
+        #self.log("acc", acc, on_epoch=True)
+        return loss
+
+    def configure_optimizers(self):
+        # Todo decays, lr scheduler, weight regularization
+        return torch.optim.SGD(self.parameters(), lr=0.003, momentum=0.8)
+
 class FederatedModel(nn.Module):
     """Base class for federated models
         Attributes:
-
     """
     def __init__(self, basename: str, 
         onServer: bool, 
@@ -141,10 +181,12 @@ class FederatedModel(nn.Module):
     def model_folder(self):
         return self._model_folder
 
-class HugoNet(FederatedModel):
+class HugoNet(FederatedModel, PlModel):
     """Simple 3 layers deep CNN"""
-    def __init__(self, onServer: bool, basename: str="hugonet", **kwargs) -> None:
-        super(HugoNet, self).__init__(basename, onServer, quantization_fusion_layer=['conv', 'batchnorm', 'relu'], **kwargs)
+    # TODO implement pl.LightningModule
+    def __init__(self, onServer: bool, basename: str="hugonet", config: Dict=None, **kwargs) -> None:
+        FederatedModel.__init__(self, basename, onServer, quantization_fusion_layer=['conv', 'batchnorm', 'relu'], **kwargs)
+        PlModel.__init__(self)
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=(2,2), stride=2, padding=3)
         self.batchnorm1 = nn.BatchNorm2d(64, affine=False)
@@ -197,21 +239,6 @@ class HugoNet(FederatedModel):
         output = F.log_softmax(x, dim=1)
         return output
 
-def resnet18(in_channels, n_classes, block=ResNetBasicBlock, *args, **kwargs):
-    return ResNet(in_channels, n_classes, block=block, deepths=[2, 2, 2, 2], *args, **kwargs)
-
-def resnet34(in_channels, n_classes, block=ResNetBasicBlock, *args, **kwargs):
-    return ResNet(in_channels, n_classes, block=block, deepths=[3, 4, 6, 3], *args, **kwargs)
-
-def resnet50(in_channels, n_classes, block=ResNetBottleNeckBlock, *args, **kwargs):
-    return ResNet(in_channels, n_classes, block=block, deepths=[3, 4, 6, 3], *args, **kwargs)
-
-def resnet101(in_channels, n_classes, block=ResNetBottleNeckBlock, *args, **kwargs):
-    return ResNet(in_channels, n_classes, block=block, deepths=[3, 4, 23, 3], *args, **kwargs)
-
-def resnet152(in_channels, n_classes, block=ResNetBottleNeckBlock, *args, **kwargs):
-    return ResNet(in_channels, n_classes, block=block, deepths=[3, 8, 36, 3], *args, **kwargs)
-
 class ResNet(FederatedModel):
     """Residual neural network"""
     def __init__(self, n_classes, basename: str="resnet", *args, **kwargs):
@@ -249,3 +276,18 @@ class ViT(nn.Sequential):
 
         self._transform = transforms.Compose([transforms.Resize((224, 224)), 
         transforms.ToTensor()])
+
+def resnet18(in_channels, n_classes, block=ResNetBasicBlock, *args, **kwargs):
+    return ResNet(in_channels, n_classes, block=block, deepths=[2, 2, 2, 2], *args, **kwargs)
+
+def resnet34(in_channels, n_classes, block=ResNetBasicBlock, *args, **kwargs):
+    return ResNet(in_channels, n_classes, block=block, deepths=[3, 4, 6, 3], *args, **kwargs)
+
+def resnet50(in_channels, n_classes, block=ResNetBottleNeckBlock, *args, **kwargs):
+    return ResNet(in_channels, n_classes, block=block, deepths=[3, 4, 6, 3], *args, **kwargs)
+
+def resnet101(in_channels, n_classes, block=ResNetBottleNeckBlock, *args, **kwargs):
+    return ResNet(in_channels, n_classes, block=block, deepths=[3, 4, 23, 3], *args, **kwargs)
+
+def resnet152(in_channels, n_classes, block=ResNetBottleNeckBlock, *args, **kwargs):
+    return ResNet(in_channels, n_classes, block=block, deepths=[3, 8, 36, 3], *args, **kwargs)

@@ -1,3 +1,4 @@
+import sys
 import mlflow
 
 class MLFlowClient:
@@ -9,12 +10,14 @@ class MLFlowClient:
         print(f"[MLFlow] Connecting to {self._tracking_uri}") 
         mlflow.set_tracking_uri(self._tracking_uri)
         print(f"[MLFlow] Done ..")
+        print(f"Tracking uri : {mlflow.get_tracking_uri()}", file=sys.stderr)
+        #print(f"Artifat uri : {mlflow.get_artifact_uri()}", file=sys.stderr)
     
     @property
     def ClientName(self):
         return self._client_name
 
-    def new_experiment(self, name: str):
+    def set_experiment(self, name: str):
         print(f"[MLFLow] New experiment {name} created !")
         mlflow.set_experiment(name)
     

@@ -49,8 +49,8 @@ class Args:
         parser.add_argument(
             "--model",
             type=str,
-            default="ResNet18",
-            choices=["HugoNet", "ResNet18", "ViT"],
+            default="hugonet",
+            choices=["hugonet", "ResNet18", "ViT"],
             help="model to train",
         )
         parser.add_argument(
@@ -90,5 +90,7 @@ class Args:
             help="Port of the mlflow server"
         )
         parser.add_argument("--pin_memory", action="store_true")
-        parser.add_argument("--load_weights", action="store_true")
+        parser.add_argument("--load_model_from_folder", action="store_true")
+        parser.add_argument("--load_mlflow_model", action="store_true")
+
         return parser.parse_args()
