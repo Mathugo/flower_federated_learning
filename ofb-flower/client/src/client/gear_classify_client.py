@@ -8,6 +8,7 @@ from utils.mlflow_client import MLFlowClient
 from models.models import FederatedModel
 import pytorch_lightning as pl
 import mlflow
+from pytorch_lightning import loggers as pl_loggers
 
 # pylint: disable=no-member
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -51,7 +52,7 @@ class GearClassifyClient(fl.client.Client):
         )
         print("Len train dataset {} len trailoader {}".format(len(self._trainset), len(trainloader)))
         # # Initialize a trainer with accelerator="gpu"
-        trainer = pl.Trainer(auto_lr_find=True, max_epochs=self._epochs, progress_bar_refresh_rate=1, log_every_n_steps=1)
+        trainer = pl.Trainer(max_epochs=self._epochs, progress_bar_refresh_rate=1, log_every_n_steps=5)
         # Auto log all MLflow entities
         mlflow.pytorch.autolog(log_every_n_step=5, registered_model_name=self._model_registry_name)
         with mlflow.start_run(run_name="train", nested=True) as run:
@@ -92,17 +93,26 @@ class GearClassifyClient(fl.client.Client):
             self._testset, batch_size=32
         )
         # Auto log all MLflow entities
-        mlflow.pytorch.autolog(log_every_n_step=5, registered_model_name=self._model_registry_name)
+        mlflow.pytorch.autolog(log_every_n_step=1, registered_model_name=self._model_registry_name)
+        
+        pl_loggers.MLFlowLogger()
+
         with mlflow.start_run(run_name="test", nested=True) as run:
             trainer = pl.Trainer(progress_bar_refresh_rate=1, log_every_n_steps=1)
             results = trainer.test(self._model, testloader)[0]
-            accuracy = results["acc"]
-            train_loss = results["train_loss"]
-            mlflow.log_metric("accuray", f"{accuracy}")
-            mlflow.log_metric("test_loss", f"{train_loss}")
+            # returned metrics
+            accuracy= results["accuracy"]
+            precision = results["precision"]
+            recall = results["recall"]
+            f1 = results["f1"]
+            test_loss = results["test_loss"]
+
+            #mlflow.log_metric("accuray", f"{accuracy}")
+            #mlflow.log_metric("test_loss", f"{train_loss}")
             print(f"[CLIENT] Test Results {results}")
+
         # Return the number of evaluation examples and the evaluation result (loss)
-        metrics = {"accuracy": accuracy}
+        metrics = {"accuracy": accuracy, "recall": recall, "precision": precision, "f1": f1}
         return EvaluateRes(
-            loss=train_loss, num_examples=len(self._testset), metrics=metrics
+            loss=test_loss, num_examples=len(self._testset), metrics=metrics
         )

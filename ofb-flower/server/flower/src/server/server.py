@@ -86,19 +86,18 @@ class ClassificationServer:
 
     def start(self):
         """Start server"""
-        # Run server
-        # Configure logger
         print(f"[SERVER] Listening to {self._args.server_address} ..", file=sys.stderr)
         fl.common.logger.configure("server", host=self._args.log_host)
-        # Create client_manager, strategy, and server
         self._client_manager = fl.server.SimpleClientManager()
         self._server = fl.server.Server(client_manager=self._client_manager, strategy=self._strategy)
         self._mlflow_client.set_experiment("Server-aggregation")
-        fl.server.start_server(
-            server_address=self._args.server_address,
-            server=self._server,
-            config={"num_rounds": self._args.rounds},
-        )
+
+        with mlflow.start_run(run_name=f"Aggreg") as run:
+            fl.server.start_server(
+                server_address=self._args.server_address,
+                server=self._server,
+                config={"num_rounds": self._args.rounds},
+            )
 
     def start_simulation(self, client_fn: fl.client.NumPyClient, NUM_CLIENTS: int):
         """Start server in simulation mode 

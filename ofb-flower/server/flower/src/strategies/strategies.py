@@ -50,40 +50,51 @@ class CustomModelStrategyFedAvg(fl.server.strategy.FedAvg):
 
         return aggregated_parameters_tuple
 
-    """ Implement abstract aggregate_evaluate method from Flower Strategy class
-    Print useful cumulative metrics from all clients
-    """
+    def _format_metrics(self, results: List[Tuple[ClientProxy, EvaluateRes]]) -> Tuple:
+        """Format metrics from testing results of all clients"""
+        # Weigh accuracy of each client by number of examples used
+        accuracies = [r.metrics["accuracy"] * r.num_examples for _, r in results]
+        precisions = [r.metrics["precision"] * r.num_examples for _, r in results]
+        recalls = [r.metrics["recall"] * r.num_examples for _, r in results]
+        f1s = [r.metrics["f1"] * r.num_examples for _, r in results]
+        examples = [r.num_examples for _, r in results]
+
+        # Average and print metrics
+        self._last_accuracy_aggregated = sum(accuracies) / sum(examples)
+        self._last_precision_aggregated = sum(precisions) / sum(examples)
+        self._last_recall_aggregated = sum(recalls) / sum(examples)
+        self._last_f1_aggregated = sum(f1s) / sum(examples)
+    
     def aggregate_evaluate(
         self,
         rnd: int,
         results: List[Tuple[ClientProxy, EvaluateRes]],
         failures: List[BaseException],
     ) -> Optional[float]:
-        """Aggregate evaluation losses using weighted average."""
+        """ Implement abstract aggregate_evaluate method from Flower Strategy class
+        Print useful cumulative metrics from all clients
+        """
         if not results:
             return None
-        # Weigh accuracy of each client by number of examples used
-        accuracies = [r.metrics["accuracy"] * r.num_examples for _, r in results]
         examples = [r.num_examples for _, r in results]
-
-        # Aggregate and print custom metric
-        self._last_accuracy_aggregated = sum(accuracies) / sum(examples)
-        print(f"[EVAL] Round {rnd} accuracy aggregated from client results: {self._last_accuracy_aggregated} %",  file=sys.stderr)
-
-        with mlflow.start_run(run_name=f"{rnd}-round") as run:
-            mlflow.log_metric("Aggregated Acc", self._last_accuracy_aggregated)
+        self._format_metrics(results)
+        
+        with mlflow.start_run(run_name=f"{rnd}-round", nested=True) as run:
+            mlflow.log_metric("Agg. Accuracy", self._last_accuracy_aggregated)
+            mlflow.log_metric("Agg. Recall", self._last_recall_aggregated)
+            mlflow.log_metric("Agg. Precision", self._last_precision_aggregated)
+            mlflow.log_metric("Agg. F1 Score", self._last_f1_aggregated)
             mlflow.log_param("Num examples", f"{sum(examples)}")
             mlflow.log_param("Failures", f"{failures}")
+
             #TODO if run with best aggregated accuracies -> we push to artefact
             run_id = run.info.run_id
-            print(f"[SERVER] Run ID {run_id}")
+            print(f"[SERVER] Aggregation round {rnd} Run ID {run_id}")
             mlflow.pytorch.log_model(
                 pytorch_model=self._model, 
                 artifact_path=self._model.Basename,
                 registered_model_name=self._registered_model_name
                 )
-            mlflow.pytorch.log_artifacts(self._model.Basename)
-            
             print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
         # Call aggregate_evaluate from base class (FedAvg)
         return super().aggregate_evaluate(rnd, results, failures)

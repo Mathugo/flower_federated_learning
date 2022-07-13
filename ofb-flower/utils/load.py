@@ -53,9 +53,10 @@ def load_classify_dataset(dataset_dir: str, transforms: Dict[str, torchvision.tr
 def load_pytorch_mlflow_model(registered_name: str, previous_model: FederatedModel, version: int=None) -> FederatedModel:
     """Load latest corresponding mlflow model from registry"""
     #TODO put staging mode
-    print(f"[MODEL] Loading latest mlflow model for {previous_model.Basename} ..", file=sys.stderr)
+    print(f"[MODEL] Loading mlflow model for {previous_model.Basename} ..", file=sys.stderr)
     try:
         if version == None:
+            print(f"[MODEL] Loading latest version of {registered_name} model in registry", file=sys.stderr)
             model = mlflow.pytorch.load_model(
                 model_uri=f"models:/{registered_name}/latest"
             )

@@ -1,5 +1,6 @@
 import sys
 import mlflow
+import os
 
 class MLFlowClient:
     def __init__(self, client_name: str, server_ip: str="localhost", port: int=4040):
@@ -9,6 +10,7 @@ class MLFlowClient:
         self._tracking_uri = f"http://{self._server_ip}:{self._server_port}"
         print(f"[MLFlow] Connecting to {self._tracking_uri}") 
         mlflow.set_tracking_uri(self._tracking_uri)
+        os.environ["MLFLOW_TRACKING_URI"] = self._tracking_uri
         print(f"[MLFlow] Done ..")
         print(f"Tracking uri : {mlflow.get_tracking_uri()}", file=sys.stderr)
         #print(f"Artifat uri : {mlflow.get_artifact_uri()}", file=sys.stderr)

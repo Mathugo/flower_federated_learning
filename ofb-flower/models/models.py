@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from typing import Dict, Tuple, List
+from sklearn import multiclass
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,14 +14,9 @@ import pytorch_lightning as pl
 from torchvision.models.feature_extraction import get_graph_node_names
 from torchvision.models.feature_extraction import create_feature_extractor
 from torchvision.models import VisionTransformer
-import os
+import os, mlflow
 from .resnet_modules import *
 from datetime import *
-
-try:
-    from torchmetrics.functional import accuracy
-except ImportError:
-    from pytorch_lightning.metrics.functional import accuracy
 
 class QuantizedModel(nn.Module):
     """Base class for quantized models"""
@@ -28,35 +24,42 @@ class QuantizedModel(nn.Module):
         pass
 
 class PlModel(pl.LightningModule):
-    def __init__(self, n_classes: int=3, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super(PlModel, self).__init__(*args, **kwargs)
         self._criterion = F.cross_entropy
-
+        
     def test_step(self, batch, batch_idx) -> float:
         x, y = batch
         output = self(x)
         loss = self._criterion(output, y).item()
         _, predicted = torch.max(output.data, -1)  # pylint: disable=no-member
         _, labels = torch.max(y, -1)
-    
-        total = labels.size(0)
-        correct = (predicted == labels).sum().item()
-        accuracy = round((correct / total), 3)
         # Use the current of Pytorch logger
-        self.log("train_loss", loss)
-        self.log("acc", accuracy)
-        return accuracy
+        accuracy = torchmetrics.functional.accuracy(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
+        recall = torchmetrics.functional.recall(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
+        precision = torchmetrics.functional.precision(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
+        f1 = torchmetrics.functional.f1_score(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
 
-    def test_epoch_end(self, outputs):
-        return sum(outputs) / len(outputs)
+        #pytorch lp doesn't support log on testing
+        self.log("test_loss", loss, on_epoch=True)
+        self.log("accuracy", accuracy, on_epoch=True)
+        self.log("recall", recall, on_epoch=True)
+        self.log("precision", precision, on_epoch=True)
+        self.log("f1", f1, on_epoch=True)
+        mlflow.log_metric("test_loss", loss)
+        mlflow.log_metric("accuracy", accuracy)
+        mlflow.log_metric("recall", recall)
+        mlflow.log_metric("precision", precision)
+        mlflow.log_metric("f1", f1)
+
+        return {"accuracy": accuracy, "recall": recall, "precision": precision, "f1": f1}
 
     def training_step(self, batch, batch_nb):
         x, y = batch
         logits = self(x)
         loss = self._criterion(logits, y)
         # Use the current of PyTorch logger
-        self.log("train_loss", loss, on_epoch=True)
-        #self.log("acc", acc, on_epoch=True)
+        self.log("train_loss", loss, on_step=True)
         return loss
 
     def configure_optimizers(self):
@@ -189,7 +192,7 @@ class HugoNet(FederatedModel, PlModel):
     def __init__(self, onServer: bool, basename: str="hugonet", config: Dict=None, n_classes: int=3, **kwargs) -> None:
         self._n_classes = n_classes
         FederatedModel.__init__(self,  basename, onServer, quantization_fusion_layer=['conv', 'batchnorm', 'relu'], n_classes=n_classes, **kwargs)
-        PlModel.__init__(self, n_classes=n_classes)
+        PlModel.__init__(self)
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=(2,2), stride=2, padding=3)
         self.batchnorm1 = nn.BatchNorm2d(64, affine=False)
