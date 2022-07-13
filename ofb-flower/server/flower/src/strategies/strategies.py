@@ -82,6 +82,8 @@ class CustomModelStrategyFedAvg(fl.server.strategy.FedAvg):
                 artifact_path=self._model.Basename,
                 registered_model_name=self._registered_model_name
                 )
+            mlflow.pytorch.log_artifacts(self._model.Basename)
+            
             print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
         # Call aggregate_evaluate from base class (FedAvg)
         return super().aggregate_evaluate(rnd, results, failures)

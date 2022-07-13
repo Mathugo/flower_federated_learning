@@ -50,23 +50,14 @@ class GearClassifyClient(fl.client.Client):
             self._trainset, batch_size=self._batch_size, shuffle=True
         )
         print("Len train dataset {} len trailoader {}".format(len(self._trainset), len(trainloader)))
-        # TODO change class to pytorch lightning module
         # # Initialize a trainer with accelerator="gpu"
         trainer = pl.Trainer(auto_lr_find=True, max_epochs=self._epochs, progress_bar_refresh_rate=1, log_every_n_steps=1)
-
         # Auto log all MLflow entities
         mlflow.pytorch.autolog(log_every_n_step=5, registered_model_name=self._model_registry_name)
         with mlflow.start_run(run_name="train", nested=True) as run:
-            #train(self._model, trainloader, epochs=self._epochs, device=DEVICE)
             trainer.fit(self._model, trainloader)
-           #mlflow.pytorch.log_model(
-            #    pytorch_model=self._model, 
-            #    artifact_path="Hugonet-pytorch-model",
-            #    registered_model_name=self._model_registry_name
-            #    )
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
         print("[CLIENT] Done")
-        
         # Return the refined weights and the number of examples used for training
         weights_prime: Weights = get_weights(self._model)
         params_prime = fl.common.weights_to_parameters(weights_prime)
@@ -100,12 +91,9 @@ class GearClassifyClient(fl.client.Client):
         testloader = torch.utils.data.DataLoader(
             self._testset, batch_size=32
         )
-        # pl lightling trainer 
         # Auto log all MLflow entities
         mlflow.pytorch.autolog(log_every_n_step=5, registered_model_name=self._model_registry_name)
         with mlflow.start_run(run_name="test", nested=True) as run:
-            #loss, accuracy = test(self._model, testloader, device=DEVICE)
-            accuracy = 0
             trainer = pl.Trainer(progress_bar_refresh_rate=1, log_every_n_steps=1)
             results = trainer.test(self._model, testloader)[0]
             accuracy = results["acc"]
@@ -113,7 +101,6 @@ class GearClassifyClient(fl.client.Client):
             mlflow.log_metric("accuray", f"{accuracy}")
             mlflow.log_metric("test_loss", f"{train_loss}")
             print(f"[CLIENT] Test Results {results}")
-
         # Return the number of evaluation examples and the evaluation result (loss)
         metrics = {"accuracy": accuracy}
         return EvaluateRes(

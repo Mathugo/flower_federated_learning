@@ -3,6 +3,7 @@ from typing import Dict, Tuple, List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchmetrics
 import torchvision.transforms as transforms
 from torch import Tensor
 from torchvision.models import resnet18, convnext_tiny, mobilenet_v3_small, vit_b_16, vit_l_16
@@ -15,6 +16,7 @@ from torchvision.models import VisionTransformer
 import os
 from .resnet_modules import *
 from datetime import *
+
 try:
     from torchmetrics.functional import accuracy
 except ImportError:
@@ -26,7 +28,7 @@ class QuantizedModel(nn.Module):
         pass
 
 class PlModel(pl.LightningModule):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, n_classes: int=3, *args, **kwargs):
         super(PlModel, self).__init__(*args, **kwargs)
         self._criterion = F.cross_entropy
 
@@ -36,10 +38,10 @@ class PlModel(pl.LightningModule):
         loss = self._criterion(output, y).item()
         _, predicted = torch.max(output.data, -1)  # pylint: disable=no-member
         _, labels = torch.max(y, -1)
+    
         total = labels.size(0)
         correct = (predicted == labels).sum().item()
         accuracy = round((correct / total), 3)
-        
         # Use the current of Pytorch logger
         self.log("train_loss", loss)
         self.log("acc", accuracy)
@@ -65,14 +67,15 @@ class FederatedModel(nn.Module):
     """Base class for federated models
         Attributes:
     """
-    def __init__(self, basename: str, 
+    def __init__(self, 
+        basename: str, 
         onServer: bool, 
-        n_classes: int=3, 
         root_dir: str="models", 
         weights_folder: str="aggr_weights", 
         channels: int=3, 
         quantization_fusion_layer: List=None,
         input_shape: Tuple[int, int]=(224, 224),
+        n_classes: int = 3
         ):
         super(FederatedModel, self).__init__()
         self._root_dir = root_dir
@@ -183,10 +186,10 @@ class FederatedModel(nn.Module):
 
 class HugoNet(FederatedModel, PlModel):
     """Simple 3 layers deep CNN"""
-    # TODO implement pl.LightningModule
-    def __init__(self, onServer: bool, basename: str="hugonet", config: Dict=None, **kwargs) -> None:
-        FederatedModel.__init__(self, basename, onServer, quantization_fusion_layer=['conv', 'batchnorm', 'relu'], **kwargs)
-        PlModel.__init__(self)
+    def __init__(self, onServer: bool, basename: str="hugonet", config: Dict=None, n_classes: int=3, **kwargs) -> None:
+        self._n_classes = n_classes
+        FederatedModel.__init__(self,  basename, onServer, quantization_fusion_layer=['conv', 'batchnorm', 'relu'], n_classes=n_classes, **kwargs)
+        PlModel.__init__(self, n_classes=n_classes)
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=(2,2), stride=2, padding=3)
         self.batchnorm1 = nn.BatchNorm2d(64, affine=False)
@@ -213,7 +216,6 @@ class HugoNet(FederatedModel, PlModel):
         torch.nn.init.xavier_normal_(self.conv1.weight)
         torch.nn.init.xavier_normal_(self.conv2.weight)
         torch.nn.init.xavier_normal_(self.conv3.weight)
-
         # TODO Post Training Quantization -> Static Quantization for CNN
         #self._config_quantized(onServer)
 

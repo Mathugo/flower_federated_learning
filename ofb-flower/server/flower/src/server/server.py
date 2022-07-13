@@ -12,7 +12,7 @@ class ClassificationServer:
     def __init__(self, args: argparse.ArgumentParser):
         """Federated Server: server-side parameter initialization"""
         self._args=args
-        self._model_registered_name = f"aggregated-{self._args.model}"
+        self._registered_model_name = f"aggregated-{self._args.model}"
         self._mlflow_client = MLFlowClient("server", args.mlflow_server_ip, args.mlflow_server_port)
         self._test_given_parameters()
         self._load_config()
@@ -41,7 +41,7 @@ class ClassificationServer:
 
     def _load_config(self):
         print("[SERVER] Loading model and weights ..")
-        self._model, self._transforms = load_model(self._args.model, self._args.n_classes, load_mlflow_model=self._args.load_mlflow_model, registered_model_name=self._model_registered_name)  
+        self._model, self._transforms = load_model(self._args.model, self._args.n_classes, load_mlflow_model=self._args.load_mlflow_model, registered_model_name=self._registered_model_name)  
 
         if not self._args.load_mlflow_model:
             self._load_model_from_folder()
@@ -59,7 +59,7 @@ class ClassificationServer:
         on_evaluate_config_fn=self._evaluate_config,
         aggr_weight_folder=self._model.aggr_weight_folder,
         model=self._model,
-        registred_model_name=self._registered_model_name,
+        registered_model_name=self._registered_model_name,
         save_weights=False,
         initial_parameters=fl.common.weights_to_parameters(self._model_weight))
 

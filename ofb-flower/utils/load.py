@@ -16,6 +16,7 @@ from .utils import get_weights, set_weights
 DATA_ROOT = Path("data")
 
 def load_classify_datasets(dataset_dir: str, num_clients: int, transforms: Dict[str, torchvision.transforms.Compose]):
+    """Load multiple classify dataset"""
     d_train, d_test = load_classify_dataset(dataset_dir=dataset_dir, transforms=transforms)
     # Split training set into `num_clients` partitions to simulate different local datasets
     partition_size = int(len(d_train) // num_clients)
@@ -23,7 +24,6 @@ def load_classify_datasets(dataset_dir: str, num_clients: int, transforms: Dict[
     print("Len d_train {}".format(len(d_train)))
     print("Partition size {} Lengths {}".format(partition_size, lengths))
     datasets = random_split(d_train, lengths, torch.Generator().manual_seed(42))
-
     # Split each partition into train/val and create DataLoader
     trainloaders = []
     valloaders = []
@@ -39,6 +39,8 @@ def load_classify_datasets(dataset_dir: str, num_clients: int, transforms: Dict[
     return trainloaders, valloaders, testloader
 
 def load_classify_dataset(dataset_dir: str, transforms: Dict[str, torchvision.transforms.Compose], data_augmentation: bool=False) -> Tuple[pipe.ClassifyDataset, pipe.ClassifyDataset]:
+    """Load a classify dataset with its transforms and data augmentation"""
+
     train = os.path.join(dataset_dir, "train")
     test = os.path.join(dataset_dir, "valid")
     d_train = pipe.ClassifyDataset(train, transform=transforms["train"])
@@ -49,32 +51,33 @@ def load_classify_dataset(dataset_dir: str, transforms: Dict[str, torchvision.tr
     return d_train, d_test
 
 def load_pytorch_mlflow_model(registered_name: str, previous_model: FederatedModel, version: int=None) -> FederatedModel:
+    """Load latest corresponding mlflow model from registry"""
     #TODO put staging mode
-        print(f"[MODEL] Loading latest mlflow model for {previous_model.Basename} ..", file=sys.stderr)
-        try:
-            if version == None:
-                model = mlflow.pytorch.load_model(
-                    model_uri=f"models:/{registered_name}/latest"
-                )
-            elif version != None:
-                model = mlflow.pytorch.load_model(
-                    model_uri=f"models:/{registered_name}/{version}"
-                )
-            print(f"[MODEL] Done ! New model {model}", file=sys.stderr)
-            print(f"[MODEL] Transferring weights to our model instance ..", file=sys.stderr)
-            previous_model.set_weights(get_weights(model))
-            print(f"[MODEL] Done !", file=sys.stderr)
-            return previous_model
-        except Exception as e:
-            print(f"[MODEL] Error exception {e}", file=sys.stderr)
-            return previous_model
+    print(f"[MODEL] Loading latest mlflow model for {previous_model.Basename} ..", file=sys.stderr)
+    try:
+        if version == None:
+            model = mlflow.pytorch.load_model(
+                model_uri=f"models:/{registered_name}/latest"
+            )
+        elif version != None:
+            model = mlflow.pytorch.load_model(
+                model_uri=f"models:/{registered_name}/{version}"
+            )
+        print(f"[MODEL] Done ! New model {model}", file=sys.stderr)
+        print(f"[MODEL] Transferring weights to our model instance ..", file=sys.stderr)
+        previous_model.set_weights(get_weights(model))
+        print(f"[MODEL] Done !", file=sys.stderr)
+        return previous_model
+    except Exception as e:
+        print(f"[MODEL] Error exception {e}", file=sys.stderr)
+        return previous_model
 
 def load_model(model_name: str, onServer: bool, n_classes: int=3, input_shape: Tuple[int, int]= (3, 224, 224), load_mlflow_model: bool=False, registered_model_name: str=None) -> Tuple[FederatedModel, Dict[str, torchvision.transforms.Compose]]:
     """Return a pytorch model and its associated transformation for training and testing """
     config = None
     # CNN Models
     if model_name == "hugonet":
-        config = (HugoNet(onServer), hugonet_transform)
+        config = (HugoNet(onServer, n_classes=3), hugonet_transform)
     # Resnet models
     elif model_name == "ResNet18":
         config = (resnet18(3, n_classes), hugonet_transform)
