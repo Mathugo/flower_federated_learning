@@ -8,10 +8,9 @@ from typing import List
 import matplotlib.pyplot as plt
 from mlflow.tracking import MlflowClient
 
-def print_auto_logged_info(r):
-
+def print_auto_logged_info(r, model_name):
     tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
-    artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
+    artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, model_name)]
     print("run_id: {}".format(r.info.run_id))
     print("artifacts: {}".format(artifacts))
     print("params: {}".format(r.data.params))

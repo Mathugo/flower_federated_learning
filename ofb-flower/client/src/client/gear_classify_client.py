@@ -54,10 +54,16 @@ class GearClassifyClient(fl.client.Client):
         # # Initialize a trainer with accelerator="gpu"
         trainer = pl.Trainer(max_epochs=self._epochs, progress_bar_refresh_rate=1, log_every_n_steps=5)
         # Auto log all MLflow entities
-        mlflow.pytorch.autolog(log_every_n_step=5, registered_model_name=self._model_registry_name)
+        mlflow.pytorch.autolog(log_every_n_step=1, registered_model_name=self._model_registry_name, log_models=False)
         with mlflow.start_run(run_name="train", nested=True) as run:
             trainer.fit(self._model, trainloader)
-        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+            mlflow.pytorch.log_model(
+            self._model, 
+            self._model.Basename,
+            registered_model_name=self._model_registry_name
+            )
+            
+        print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id), self._model.Basename)
         print("[CLIENT] Done")
         # Return the refined weights and the number of examples used for training
         weights_prime: Weights = get_weights(self._model)
@@ -93,7 +99,7 @@ class GearClassifyClient(fl.client.Client):
             self._testset, batch_size=32
         )
         # Auto log all MLflow entities
-        mlflow.pytorch.autolog(log_every_n_step=1, registered_model_name=self._model_registry_name)
+        mlflow.pytorch.autolog(log_every_n_step=1, log_models=False)
         
         pl_loggers.MLFlowLogger()
 
@@ -101,11 +107,11 @@ class GearClassifyClient(fl.client.Client):
             trainer = pl.Trainer(progress_bar_refresh_rate=1, log_every_n_steps=1)
             results = trainer.test(self._model, testloader)[0]
             # returned metrics
-            accuracy= results["accuracy"]
-            precision = results["precision"]
-            recall = results["recall"]
-            f1 = results["f1"]
-            test_loss = results["test_loss"]
+            accuracy= results["accuracy_epoch"]
+            precision = results["precision_epoch"]
+            recall = results["recall_epoch"]
+            f1 = results["f1_epoch"]
+            test_loss = results["test_loss_epoch"]
 
             #mlflow.log_metric("accuray", f"{accuracy}")
             #mlflow.log_metric("test_loss", f"{train_loss}")

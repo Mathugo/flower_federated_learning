@@ -40,6 +40,7 @@ class CustomModelStrategyFedAvg(fl.server.strategy.FedAvg):
             self._model.set_weights(aggregated_weights)
             #set_weights(self._model, aggregated_weights)
             print("[SERVER] Done")
+            
             if self._save_weights:
                 weights_filename = os.path.join(self._aggr_weight_folder, "{}-round-{}-weights.pth".format(datetime.now().strftime("%Y-%m-%d-%H-%M-%S"), rnd))
                 # Save aggregated_weights
@@ -91,10 +92,13 @@ class CustomModelStrategyFedAvg(fl.server.strategy.FedAvg):
             run_id = run.info.run_id
             print(f"[SERVER] Aggregation round {rnd} Run ID {run_id}")
             mlflow.pytorch.log_model(
-                pytorch_model=self._model, 
-                artifact_path=self._model.Basename,
+                self._model, 
+                self._model.Basename,
                 registered_model_name=self._registered_model_name
                 )
-            print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id))
+            self.scripted_model = torch.jit.script(self._model)
+            mlflow.pytorch.log_model(self.scripted_model, self._model.Basename,
+                registered_model=self._registered_model_name)
+            print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id), self._model.Basename)
         # Call aggregate_evaluate from base class (FedAvg)
         return super().aggregate_evaluate(rnd, results, failures)

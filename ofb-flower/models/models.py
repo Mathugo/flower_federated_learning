@@ -41,11 +41,11 @@ class PlModel(pl.LightningModule):
         f1 = torchmetrics.functional.f1_score(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
 
         #pytorch lp doesn't support log on testing
-        self.log("test_loss", loss, on_epoch=True)
-        self.log("accuracy", accuracy, on_epoch=True)
-        self.log("recall", recall, on_epoch=True)
-        self.log("precision", precision, on_epoch=True)
-        self.log("f1", f1, on_epoch=True)
+        self.log("test_loss", loss, on_step=True)
+        self.log("accuracy", accuracy, on_step=True)
+        self.log("recall", recall, on_step=True)
+        self.log("precision", precision, on_step=True)
+        self.log("f1", f1, on_step=True)
         mlflow.log_metric("test_loss", loss)
         mlflow.log_metric("accuracy", accuracy)
         mlflow.log_metric("recall", recall)
@@ -58,8 +58,13 @@ class PlModel(pl.LightningModule):
         x, y = batch
         logits = self(x)
         loss = self._criterion(logits, y)
+        _, predicted = torch.max(logits.data, -1)  # pylint: disable=no-member
+        _, labels = torch.max(y, -1)
+        accuracy = torchmetrics.functional.accuracy(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
         # Use the current of PyTorch logger
-        self.log("train_loss", loss, on_step=True)
+        self.log("train_loss_step", loss, on_step=True)
+        self.log("train_loss_epoch", loss, on_epoch=True)
+        self.log("accuracy", accuracy, on_step=True)
         return loss
 
     def configure_optimizers(self):

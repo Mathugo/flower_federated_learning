@@ -70,7 +70,7 @@ def load_pytorch_mlflow_model(registered_name: str, previous_model: FederatedMod
         print(f"[MODEL] Done !", file=sys.stderr)
         return previous_model
     except Exception as e:
-        print(f"[MODEL] Error exception {e}", file=sys.stderr)
+        print(f"[MODEL] Error exception {e}, loading vanilla model ..", file=sys.stderr)
         return previous_model
 
 def load_model(model_name: str, onServer: bool, n_classes: int=3, input_shape: Tuple[int, int]= (3, 224, 224), load_mlflow_model: bool=False, registered_model_name: str=None) -> Tuple[FederatedModel, Dict[str, torchvision.transforms.Compose]]:
