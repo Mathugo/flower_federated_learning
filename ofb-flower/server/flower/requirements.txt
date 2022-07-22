@@ -4,10 +4,12 @@ torchvision
 pathlib
 torchsummary
 numpy 
-matplotlib
 einops
 scikit-image
 sklearn
 imgaug
 pytorch_lightning
+pytorch-lightning-bolts
+lightning-transformers
 pysftp
+timm

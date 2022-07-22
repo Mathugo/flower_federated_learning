@@ -1,203 +1,29 @@
-from collections import OrderedDict
-from typing import Dict, Tuple, List
-from sklearn import multiclass
+import sys
+from typing import Any, Dict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchmetrics
-import torchvision.transforms as transforms
 from torch import Tensor
 from torchvision.models import resnet18, convnext_tiny, mobilenet_v3_small, vit_b_16, vit_l_16
-from .vit_modules import *
-import flwr as fl
-import pytorch_lightning as pl
-from torchvision.models.feature_extraction import get_graph_node_names
-from torchvision.models.feature_extraction import create_feature_extractor
-from torchvision.models import VisionTransformer
-import os, mlflow
-from .resnet_modules import *
+from .base_models import FederatedModel, PlModel, QuantizedModel
 from datetime import *
+from typing import Tuple
+import timm
+import torch
 
-class QuantizedModel(nn.Module):
-    """Base class for quantized models"""
-    def __init__(self):
-        pass
-
-class PlModel(pl.LightningModule):
-    def __init__(self, *args, **kwargs):
-        super(PlModel, self).__init__(*args, **kwargs)
-        self._criterion = F.cross_entropy
-        
-    def test_step(self, batch, batch_idx) -> float:
-        x, y = batch
-        output = self(x)
-        loss = self._criterion(output, y).item()
-        _, predicted = torch.max(output.data, -1)  # pylint: disable=no-member
-        _, labels = torch.max(y, -1)
-        # Use the current of Pytorch logger
-        accuracy = torchmetrics.functional.accuracy(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
-        recall = torchmetrics.functional.recall(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
-        precision = torchmetrics.functional.precision(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
-        f1 = torchmetrics.functional.f1_score(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
-
-        #pytorch lp doesn't support log on testing
-        self.log("test_loss", loss, on_step=True)
-        self.log("accuracy", accuracy, on_step=True)
-        self.log("recall", recall, on_step=True)
-        self.log("precision", precision, on_step=True)
-        self.log("f1", f1, on_step=True)
-        mlflow.log_metric("test_loss", loss)
-        mlflow.log_metric("accuracy", accuracy)
-        mlflow.log_metric("recall", recall)
-        mlflow.log_metric("precision", precision)
-        mlflow.log_metric("f1", f1)
-
-        return {"accuracy": accuracy, "recall": recall, "precision": precision, "f1": f1}
-
-    def training_step(self, batch, batch_nb):
-        x, y = batch
-        logits = self(x)
-        loss = self._criterion(logits, y)
-        _, predicted = torch.max(logits.data, -1)  # pylint: disable=no-member
-        _, labels = torch.max(y, -1)
-        accuracy = torchmetrics.functional.accuracy(predicted, labels, num_classes=self._n_classes, multiclass=True, average="macro")
-        # Use the current of PyTorch logger
-        self.log("train_loss_step", loss, on_step=True)
-        self.log("train_loss_epoch", loss, on_epoch=True)
-        self.log("accuracy", accuracy, on_step=True)
-        return loss
-
-    def configure_optimizers(self):
-        # Todo decays, lr scheduler, weight regularization
-        return torch.optim.SGD(self.parameters(), lr=0.003, momentum=0.8)
-
-class FederatedModel(nn.Module):
-    """Base class for federated models
-        Attributes:
-    """
-    def __init__(self, 
-        basename: str, 
-        onServer: bool, 
-        root_dir: str="models", 
-        weights_folder: str="aggr_weights", 
-        channels: int=3, 
-        quantization_fusion_layer: List=None,
-        input_shape: Tuple[int, int]=(224, 224),
-        n_classes: int = 3
-        ):
-        super(FederatedModel, self).__init__()
-        self._root_dir = root_dir
-        self._base_name = basename
-        self._n_classes = n_classes
-        self._model_folder = os.path.join(self._root_dir, self.Basename)
-        self._aggr_weight_folder = os.path.join(self._model_folder, weights_folder)
-        self._input_shape=input_shape
-        self._channels = channels
-        self._on_server = onServer
-        self._fusion_layer=quantization_fusion_layer
-        self._create_folders()
-
-    def _create_folders(self) -> None:
-        """Create folders to save models and weights""" 
-
-        if not os.path.isdir(self._root_dir):
-            print("[MODEL] {self._root_dir} doesn't exist, creating folder structure ..")
-            os.mkdir(self._root_dir)
-            os.mkdir(self._model_folder)
-            os.mkdir(self._aggr_weight_folder)
-
-        elif not os.path.isdir(self._model_folder):
-            os.mkdir(self._model_folder)
-            print("[MODEL] {self._model_folder} doesn't exist, creating folder structure ..")
-
-        if not os.path.isdir(self._aggr_weight_folder):
-            os.mkdir(self._aggr_weight_folder)
-            print("[MODEL] {self._aggr_weight_folder} doesn't exist, creating folder structure ..")
-             
-    def get_weights(self) -> fl.common.Weights:
-        """Get model weights as a list of NumPy ndarrays."""
-        return [val.cpu().numpy() for _, val in self.state_dict().items()]
-
-    def set_weights(self, weights: fl.common.Weights) -> None:
-        """Set model weights from a list of NumPy ndarrays."""
-        state_dict = OrderedDict(
-            {k: torch.tensor(v) for k, v in zip(self.state_dict().keys(), weights)}
-        )
-        self.load_state_dict(state_dict, strict=True)
-    
-    def save(self, filename: str=None):
-        """Save the weights to the .pth pytorch format"""
-        if filename == None:
-            filename = "model-{}".format(datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
-        filename =  os.path.join(self._model_folder, filename)
-        print("[MODEL] Saving to {}".format(filename))
-        torch.save(self.state_dict(), filename)
-        print("[DONE]")
-    
-    def save_script(self, filename: str, model: torch.nn=None):
-        """Save model in TorchScript format"""
-        filename = os.path.join(self._model_folder, filename)
-        model_to_script = self
-        if isinstance(model):
-            model_to_script = model
-        model_scripted = torch.jit.script(model_to_script) # Export to TorchScript
-        model_scripted.save(filename) # Save
-
-    def save_pqt_quantized(self, representative_dataset) -> bool:
-        """ quantized the model using PQT : Post training quantization"""
-        model_fp32 = self
-        if self._on_server:
-            # configure for server inference
-            qconfig = 'fbgemm'
-        else:
-            # config for mobile inference
-            qconfig = 'qnnpack'
-        model_fp32.qconfig = torch.quantization.get_default_qconfig(qconfig)
-
-        # Fuse the activations to preceding layers, where applicable.
-        if self._fusion_layer == None:
-            print("[MODEL] No fusion_layer provied for static quantization, aborting ..")
-            return False
-        else:
-            model_fp32_fused = torch.quantization.fuse_modules(model_fp32, [self._fusion_layer])
-            model_fp32_prepared = torch.quantization.prepare(model_fp32_fused)
-
-            # calibrate prepared model to dertermine quantization parameters for activations
-            #input_fp32 = torch.randn(4, 1, 4, 4)
-            model_fp32_prepared(representative_dataset)
-
-            # Convert the observed model to a quantized model. This does several things:
-            # quantizes the weights, computes and stores the scale and bias value to be
-            # used with each activation tensor, and replaces key operators with quantized
-            # implementations.
-            model_int8 = torch.quantization.convert(model_fp32_prepared)
-            filename = "model-qt8-{}".format(datetime.now().strftime("%Y-%m-%d-%H-%M-%S"))
-            self.save_script(filename, model_int8)
-
-    @property
-    def Basename(self):
-        """Basename for saving and model registry purposes"""
-        return self._base_name
-
-    @Basename.setter
-    def Basename(self, value: str):
-        self._base_name = value
-
-    @property
-    def aggr_weight_folder(self):
-        """Aggregated weight folder"""
-        return self._aggr_weight_folder
-        
-    @property
-    def model_folder(self):
-        return self._model_folder
+# Criterions : Computes the differences between two probability distributions
+# F.cross_entropy : Cross entropy penalizes greatly for being very confident and wrong. -> Creating confident models—the prediction will be accurate and with a higher probability.
+# kullback-leibler divergence (KL Divergence) : Its output tells you the proximity of two probability distributions. Multi-class classification tasks
+# Cross-Entropy punishes the model according to the confidence of predictions, and KL Divergence doesn’t. KL Divergence only assesses how the probability distribution prediction is different from the distribution of ground truth.
+# kl_loss = nn.KLDivLoss(reduction = 'batchmean')
+# Focal Loss
 
 class HugoNet(FederatedModel, PlModel):
     """Simple 3 layers deep CNN"""
-    def __init__(self, onServer: bool, basename: str="hugonet", config: Dict=None, n_classes: int=3, **kwargs) -> None:
+    def __init__(self, onServer: bool, basename: str="hugonet", config: Dict=None, n_classes: int=3, **kwargs: Any) -> None:
         self._n_classes = n_classes
-        FederatedModel.__init__(self,  basename, onServer, quantization_fusion_layer=['conv', 'batchnorm', 'relu'], n_classes=n_classes, **kwargs)
-        PlModel.__init__(self)
+        FederatedModel.__init__(self, basename, onServer, quantization_fusion_layer=['conv', 'batchnorm', 'relu'], n_classes=n_classes, **kwargs)
+        PlModel.__init__(self, learning_rate=1e-4, lr_scheduler=True)
 
         self.conv1 = nn.Conv2d(3, 64, kernel_size=(2,2), stride=2, padding=3)
         self.batchnorm1 = nn.BatchNorm2d(64, affine=False)
@@ -227,6 +53,12 @@ class HugoNet(FederatedModel, PlModel):
         # TODO Post Training Quantization -> Static Quantization for CNN
         #self._config_quantized(onServer)
 
+    def test_step(self, batch, batch_idx) -> float:
+        return super().test_step(batch, batch_idx, self._n_classes)
+
+    def training_step(self, batch, batch_nb, optimizer_idx):
+        return super().training_step(batch, batch_nb, optimizer_idx, self._n_classes)
+
     def forward(self, x: Tensor) -> Tensor:
         """Compute forward pass."""
         x = self.conv1(x)
@@ -249,55 +81,107 @@ class HugoNet(FederatedModel, PlModel):
         output = F.log_softmax(x, dim=1)
         return output
 
-class ResNet(FederatedModel):
-    """Residual neural network"""
-    def __init__(self, n_classes, basename: str="resnet", *args, **kwargs):
-        super(ResNet, self).__init__(basename, **kwargs)
-        self.encoder = ResNetEncoder((self._channels, self._input_shape[0], self._input_shape[1]), *args, **kwargs)
-        self.decoder = ResnetDecoder(self.encoder.blocks[-1].blocks[-1].expanded_channels, n_classes)
-        
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
+class FlResnet18(FederatedModel, PlModel):
+    def __init__(self, onServer: bool, input_shape: Tuple[int, int, int], n_classes: int, basename: str="resnet18", learning_rate=3e-4, transfer=False, *arg, **kwargs):
+        FederatedModel.__init__(self,  basename, onServer, quantization_fusion_layer=['conv', 'batchnorm', 'relu'], n_classes=n_classes, **kwargs)
+        PlModel.__init__(self, learning_rate=5e-4, lr_scheduler=True)
+        # log hyperparameters
+        self.save_hyperparameters()
+        self.learning_rate = learning_rate
+        self.dim = input_shape
+        self.num_classes = n_classes
+        # transfer learning if pretrained=True and onServer (client don't need to dl the weights, it will be send via gRpc)
+        self.feature_extractor = resnet18(pretrained=(transfer and onServer))
+        if transfer:
+            # layers are frozen by using eval()
+            self.feature_extractor.eval()
+            # freeze params
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
+        n_sizes = self._get_conv_output(input_shape)
+        self.classifier = nn.Linear(n_sizes, self._n_classes)
+  
+    # returns the size of the output tensor going into the Linear layer from the conv block.
+    def _get_conv_output(self, shape):
+        batch_size = 1
+        tmp_input = torch.autograd.Variable(torch.rand(batch_size, *shape))
+        output_feat = self._forward_features(tmp_input) 
+        n_size = output_feat.data.view(batch_size, -1).size(1)
+        return n_size
+    # returns the feature tensor from the conv block
+    def _forward_features(self, x):
+        x = self.feature_extractor(x)
         return x
+    # will be used during inference
+    def forward(self, x):
+       x = self._forward_features(x)
+       x = x.view(x.size(0), -1)
+       x = self.classifier(x)
+       return x
 
-class Deit(FederatedModel):
-    """Data-efficient image Transformers: A promising new technique for image classification"""
-    def __init__(self, basename: str="deit", **kwargs):
-        # To be implemented
-        super(HugoNet, self).__init__(basename, **kwargs)
+    def training_step(self, batch, batch_nb, optimizer_idx):
+        x, y = batch
+        logits = self(x)
+        loss = self._criterion(logits, y)
+        _, predicted = torch.max(logits.data, -1) 
+        _, labels = torch.max(y, -1)
+        return super().test_step(batch, batch_nb, optimizer_idx, predicted, labels, loss, self._n_classes)
 
-        model = torch.hub.load('facebookresearch/deit:main', 'deit_base_patch16_224', pretrained=True)
-        model.eval()
+    def test_step(self, batch, batch_idx):
+        # overload of test_step from pl lightning
+        x, y = batch
+        output = self(x)
+        loss = self._criterion(output, y).item()
+        _, predicted = torch.max(output.data, -1)  # pylint: disable=no-member
+        _, labels = torch.max(y, -1)
+        return super().test_step(batch, batch_idx, predicted, labels, loss, self._n_classes)
+    
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.learning_rate) 
 
-class ViT(nn.Sequential):
-    def __init__(self,     
-                in_channels: int = 3,
-                patch_size: int = 16,
-                emb_size: int = 768,
-                img_size: int = 224,
-                depth: int = 12,
-                n_classes: int = 1000,
-                **kwargs):
-        super().__init__(
-            PatchEmbedding(in_channels, patch_size, emb_size, img_size),
-            TransformerEncoder(depth, emb_size=emb_size, **kwargs),
-            ClassificationHead(emb_size, n_classes))
+class HubModel(FederatedModel, PlModel):
+    """Hub Model"""
+    def __init__(self, onServer: bool, basename: str, n_classes: int, pretrained: bool=True, learning_rate: float=3e-4, alpha: float=None, *args: Any, **kwargs: Any) -> None:
+        self._n_classes = n_classes
+        self.alpha = alpha
+        self.onserver = onServer
+        self.pretrained = pretrained
 
-        self._transform = transforms.Compose([transforms.Resize((224, 224)), 
-        transforms.ToTensor()])
+        FederatedModel.__init__(self, basename, onServer, n_classes=n_classes, **kwargs)
+        PlModel.__init__(self, learning_rate=learning_rate, has_pretrained_weights=(pretrained and onServer))
+        #If the model was not found in mlflow registry -> we load pretrained weights from hub
+        self.feature_extractor = timm.create_model(basename, pretrained= (onServer and pretrained), num_classes=n_classes)
+        if pretrained:
+            self.feature_extractor.reset_classifier(n_classes)
 
-def resnet18(in_channels, n_classes, block=ResNetBasicBlock, *args, **kwargs):
-    return ResNet(in_channels, n_classes, block=block, deepths=[2, 2, 2, 2], *args, **kwargs)
+        if self.alpha != None:
+            print(f"[MODEL] Freezing neural networks with coeff {self.alpha} ..")
+            self.do_freeze()
 
-def resnet34(in_channels, n_classes, block=ResNetBasicBlock, *args, **kwargs):
-    return ResNet(in_channels, n_classes, block=block, deepths=[3, 4, 6, 3], *args, **kwargs)
+    def do_freeze(self) -> None:
+        """Freeze parameters in a network using a freezing coeff 0 < alpha < 1"""
+        nb_parameters =sum(1 for x in self.feature_extractor.parameters())
+        nb_to_freeze = int(nb_parameters * self.alpha)
+        print(f"[MODEL] {nb_parameters} of parameters, {nb_to_freeze} to freeze with alpha {self.alpha}", file=sys.stderr)
+        # freeze params
+        for i, param in enumerate(self.feature_extractor.parameters()):
+            param.requires_grad = False
+            if i >= nb_to_freeze:
+                print("[MODEL] Done", file=sys.stderr)
+                break
+            
+    def load_pretrained_weights(self) -> None:
+        print(f"[MODEL] Loading pretrained weights for {self.Basename} ..", file=sys.stderr)
+        self.feature_extractor = timm.create_model(self.Basename, pretrained= (self.onserver and self.pretrained), num_classes=self._n_classes)
+        self.feature_extractor.reset_classifier(self._n_classes)
+        print("[MODEL] Done")
 
-def resnet50(in_channels, n_classes, block=ResNetBottleNeckBlock, *args, **kwargs):
-    return ResNet(in_channels, n_classes, block=block, deepths=[3, 4, 6, 3], *args, **kwargs)
+    def forward(self, x):
+        return self.feature_extractor(x)
 
-def resnet101(in_channels, n_classes, block=ResNetBottleNeckBlock, *args, **kwargs):
-    return ResNet(in_channels, n_classes, block=block, deepths=[3, 4, 23, 3], *args, **kwargs)
+    def training_step(self, batch, batch_nb, optimizer_idx):
+        return super().training_step(batch, batch_nb, optimizer_idx, self._n_classes)
 
-def resnet152(in_channels, n_classes, block=ResNetBottleNeckBlock, *args, **kwargs):
-    return ResNet(in_channels, n_classes, block=block, deepths=[3, 8, 36, 3], *args, **kwargs)
+    def test_step(self, batch, batch_idx):
+        return super().test_step(batch, batch_idx, self._n_classes)
+

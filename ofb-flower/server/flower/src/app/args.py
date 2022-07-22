@@ -50,7 +50,7 @@ class Args:
             "--model",
             type=str,
             default="hugonet",
-            choices=["hugonet", "ResNet18", "ViT"],
+            choices=["hugonet", "resnet18", "resnetv2_101x1_bitm", "mobilenetv3_rw", "efficientnet_b0", "vit_base_patch16_224", "vit_small_patch16_224", "vit_small_patch32_224", "vit_tiny_patch16_224"],
             help="model to train",
         )
         parser.add_argument(
