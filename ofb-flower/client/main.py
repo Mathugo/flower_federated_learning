@@ -28,7 +28,7 @@ def main() -> None:
     mlflow_client.set_experiment(f"{args.cid}-{mlflow_client.ClientName}")
 
     # Start a run with federated learning and mlflow
-    with mlflow.start_run(run_name="normal-run") as run:
+    with mlflow.start_run(run_name=f"{model.Basename}") as run:
         fl.client.start_client(addr, client)
 
 if __name__ == "__main__":

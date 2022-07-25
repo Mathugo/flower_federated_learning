@@ -11,6 +11,7 @@ from typing import Tuple
 import timm
 import torch
 
+
 # Criterions : Computes the differences between two probability distributions
 # F.cross_entropy : Cross entropy penalizes greatly for being very confident and wrong. -> Creating confident models—the prediction will be accurate and with a higher probability.
 # kullback-leibler divergence (KL Divergence) : Its output tells you the proximity of two probability distributions. Multi-class classification tasks
@@ -92,6 +93,7 @@ class FlResnet18(FederatedModel, PlModel):
         self.num_classes = n_classes
         # transfer learning if pretrained=True and onServer (client don't need to dl the weights, it will be send via gRpc)
         self.feature_extractor = resnet18(pretrained=(transfer and onServer))
+        
         if transfer:
             # layers are frozen by using eval()
             self.feature_extractor.eval()
@@ -174,6 +176,9 @@ class HubModel(FederatedModel, PlModel):
         print(f"[MODEL] Loading pretrained weights for {self.Basename} ..", file=sys.stderr)
         self.feature_extractor = timm.create_model(self.Basename, pretrained= (self.onserver and self.pretrained), num_classes=self._n_classes)
         self.feature_extractor.reset_classifier(self._n_classes)
+        if self.alpha != None:
+            self.do_freeze()
+            
         print("[MODEL] Done")
 
     def forward(self, x):

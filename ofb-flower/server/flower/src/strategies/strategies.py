@@ -35,11 +35,19 @@ class CustomModelStrategyFedAvg(fl.server.strategy.FedAvg):
             # Convert `Parameters` to `List[np.ndarray]`
             aggregated_weights: List[np.ndarray] = fl.common.parameters_to_weights(aggregated_parameters)
             # Convert `List[np.ndarray]` to PyTorch`state_dict`
-            print("[SERVER] Loading newly aggregated weights ..")
+            print("[SERVER] Loading newly aggregated weights ..", file=sys.stderr)
             # TODO test metrics if greater than last, we load the aggr weight to the model
             self._model.set_weights(aggregated_weights)
             #set_weights(self._model, aggregated_weights)
             print("[SERVER] Done")
+            
+            print(f"[SERVER] Saving {self._model.Basename} with aggregated weights for round {rnd}", file=sys.stderr)
+            mlflow.pytorch.log_model(
+                self._model, 
+                self._model.Basename,
+                registered_model_name=self._registered_model_name
+            )
+            mlflow.pytorch.log_state_dict(self._model.state_dict(), self._registered_model_name)
             
             if self._save_weights:
                 weights_filename = os.path.join(self._aggr_weight_folder, "{}-round-{}-weights.pth".format(datetime.now().strftime("%Y-%m-%d-%H-%M-%S"), rnd))
@@ -91,14 +99,14 @@ class CustomModelStrategyFedAvg(fl.server.strategy.FedAvg):
             #TODO if run with best aggregated accuracies -> we push to artefact
             run_id = run.info.run_id
             print(f"[SERVER] Aggregation round {rnd} Run ID {run_id}")
-            mlflow.pytorch.log_model(
-                self._model, 
-                self._model.Basename,
-                registered_model_name=self._registered_model_name
-                )
-            self.scripted_model = torch.jit.script(self._model)
-            mlflow.pytorch.log_model(self.scripted_model, self._model.Basename,
-                registered_model=self._registered_model_name)
+            #mlflow.pytorch.log_model(
+            #    self._model, 
+            #    self._model.Basename,
+            #    registered_model_name=self._registered_model_name
+            #    )
+            #self.scripted_model = torch.jit.script(self._model)
+            #mlflow.pytorch.log_model(self.scripted_model, self._model.Basename,
+            #    registered_model=self._registered_model_name)
             print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id), self._model.Basename)
         # Call aggregate_evaluate from base class (FedAvg)
         return super().aggregate_evaluate(rnd, results, failures)

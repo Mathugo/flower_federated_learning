@@ -1,4 +1,3 @@
-einops
 pillow
 matplotlib
 pandas
@@ -10,3 +9,4 @@ requests
 mlflow-skinny
 pytorch_lightning
 pysftp
+pytorch-lightning-bolts

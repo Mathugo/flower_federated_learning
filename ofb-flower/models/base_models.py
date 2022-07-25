@@ -1,9 +1,11 @@
 from collections import OrderedDict
+import sys
 from typing import Dict, Tuple, List
 import torch
 import torch.nn as nn
 import torchmetrics
 import pytorch_lightning as pl
+import torch.nn.functional as F
 import os, mlflow
 import flwr as fl
 from datetime import datetime
@@ -28,18 +30,17 @@ class PlModel(pl.LightningModule):
         loss = self._criterion(output, y).item()
         _, predicted = torch.max(output.data, -1)  # pylint: disable=no-member
         _, labels = torch.max(y, -1)
-
         accuracy = torchmetrics.functional.accuracy(predicted, labels, num_classes=n_classes, multiclass=True, average="macro")
         recall = torchmetrics.functional.recall(predicted, labels, num_classes=n_classes, multiclass=True, average="macro")
         precision = torchmetrics.functional.precision(predicted, labels, num_classes=n_classes, multiclass=True, average="macro")
         f1 = torchmetrics.functional.f1_score(predicted, labels, num_classes=n_classes, multiclass=True, average="macro")
 
         #pytorch lp doesn't support log on testing
-        self.log("test_loss", loss, on_step=True)
-        self.log("accuracy", accuracy, on_step=True)
-        self.log("recall", recall, on_step=True)
-        self.log("precision", precision, on_step=True)
-        self.log("f1", f1, on_step=True)
+        self.log("test_loss", loss)
+        self.log("accuracy", accuracy)
+        self.log("recall", recall)
+        self.log("precision", precision)
+        self.log("f1", f1)
         mlflow.log_metric("test_loss", loss)
         mlflow.log_metric("accuracy", accuracy)
         mlflow.log_metric("recall", recall)
@@ -56,9 +57,8 @@ class PlModel(pl.LightningModule):
 
         accuracy = torchmetrics.functional.accuracy(predicted, labels, num_classes=n_classes, multiclass=True, average="macro")
         # Use the current of PyTorch logger
-        self.log("train_loss_step", loss, on_step=True)
-        self.log("train_loss_epoch", loss, on_epoch=True)
-        self.log("accuracy", accuracy, on_step=True)
+        self.log("loss_step", loss, on_step=True)
+        #self.log("accuracy", accuracy, on_step=True)
         return {"loss": loss, "accuracy": accuracy}
     
     def configure_optimizers(self):
