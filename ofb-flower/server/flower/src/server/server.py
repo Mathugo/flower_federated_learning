@@ -1,4 +1,5 @@
 import argparse, sys
+from tkinter import Variable
 sys.path.append("../..")
 from utils.utils import get_weights
 from utils.load import load_model
@@ -14,6 +15,7 @@ class ClassificationServer:
         self._args=args
         self._registered_model_name = f"aggregated-{self._args.model}"
         self._mlflow_client = MLFlowClient("server", args.mlflow_server_ip, args.mlflow_server_port)
+        self._last_run_id = None
         self._test_given_parameters()
         self._load_config()
 
@@ -37,12 +39,14 @@ class ClassificationServer:
                 print("[SERVER] Done", file=sys.stderr)
             else:
                 print(f"[SERVER] Args load_weights = {self._args.load_weights} but no files found at {self._model.aggr_weight_folder}",  file=sys.stderr)
-        # initial weight
-
+        
     def _load_config(self):
         print("[SERVER] Loading model and weights ..")
-        self._model, self._transforms = load_model(self._args.model, self._args.n_classes, load_mlflow_model=self._args.load_mlflow_model, registered_model_name=self._registered_model_name)  
-
+        self._model, self._transforms = load_model(self._args.model, 
+        self._args.n_classes, load_mlflow_model=self._args.load_mlflow_model, 
+        registered_model_name=self._registered_model_name, 
+        model_stage=self._args.model_stage)  
+        
         if not self._args.load_mlflow_model:
             self._load_model_from_folder()
         else: 
@@ -50,17 +54,16 @@ class ClassificationServer:
 
     def configure_strategy(self) -> None:
         """configure strategy for aggregation, training and evaluation"""
-        self._strategy = CustomModelStrategyFedAvg(fraction_fit=self._args.fraction_fit,
+        self._strategy = CustomModelStrategyFedAvg(
+        self._model,
+        self._registered_model_name,
+        fraction_fit=self._args.fraction_fit,
         fraction_eval=self._args.fraction_eval,
         min_fit_clients=self._args.min_sample_size,
         min_eval_clients=self._args.min_sample_size,
         min_available_clients=self._args.min_num_clients,
         on_fit_config_fn=self._fit_config,
         on_evaluate_config_fn=self._evaluate_config,
-        aggr_weight_folder=self._model.aggr_weight_folder,
-        model=self._model,
-        registered_model_name=self._registered_model_name,
-        save_weights=False,
         initial_parameters=fl.common.weights_to_parameters(self._model_weight))
 
     def _evaluate_config(self, rnd: int):
@@ -98,6 +101,7 @@ class ClassificationServer:
                 server=self._server,
                 config={"num_rounds": self._args.rounds},
             )
+        self.last_run = run
 
     def start_simulation(self, client_fn: fl.client.NumPyClient, NUM_CLIENTS: int):
         """Start server in simulation mode 
@@ -113,11 +117,19 @@ class ClassificationServer:
         )
     
     @property
+    def last_run(self) -> Variable:
+        return self._last_run
+    
+    @last_run.setter
+    def last_run(self, value: Variable) -> None:
+        self._last_run = value
+
+    @property
     def startegy(self) ->fl.server.strategy:
         return self._strategy
     
     @startegy.setter
-    def startegy(self, value: fl.server.strategy) ->None:
+    def startegy(self, value: fl.server.strategy) -> None:
         self._strategy = value
 
     @property

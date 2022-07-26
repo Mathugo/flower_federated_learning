@@ -42,6 +42,13 @@ class Args:
             help="Minimum number of available clients required for sampling (default: 2)",
         )
         parser.add_argument(
+            "--model_stage",
+            type=str,
+            choices=["Staging", "Production"],
+            default='Staging',
+            help="Model Stage to select (default: 'Staging')",
+        )
+        parser.add_argument(
             "--log_host",
             type=str,
             help="Logserver address (no default)",

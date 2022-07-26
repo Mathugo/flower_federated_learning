@@ -11,7 +11,6 @@ from typing import Tuple
 import timm
 import torch
 
-
 # Criterions : Computes the differences between two probability distributions
 # F.cross_entropy : Cross entropy penalizes greatly for being very confident and wrong. -> Creating confident models—the prediction will be accurate and with a higher probability.
 # kullback-leibler divergence (KL Divergence) : Its output tells you the proximity of two probability distributions. Multi-class classification tasks

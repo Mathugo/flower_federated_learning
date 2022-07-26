@@ -55,7 +55,6 @@ def load_classify_dataset(dataset_dir: str, transforms: Dict[str, torchvision.tr
 
 def load_pytorch_mlflow_model(registered_name: str, previous_model: FederatedModel, version: int=None, stage: str=None) -> FederatedModel:
     """Load latest corresponding mlflow model from registry"""
-    #TODO put staging mode
     print(f"[MODEL] Loading mlflow model for {previous_model.Basename} ..", file=sys.stderr)
     try:
         if version == None and stage != None:
@@ -82,13 +81,11 @@ def load_pytorch_mlflow_model(registered_name: str, previous_model: FederatedMod
             previous_model.load_pretrained_weights()
         return previous_model
 
-def load_model(model_name: str, onServer: bool, n_classes: int=3, input_shape: Tuple[int, int]= (3, 224, 224), load_mlflow_model: bool=False, registered_model_name: str=None) -> Tuple[FederatedModel, Dict[str, torchvision.transforms.Compose]]:
+def load_model(model_name: str, onServer: bool, n_classes: int=3, input_shape: Tuple[int, int]= (3, 224, 224), load_mlflow_model: bool=False, registered_model_name: str=None, model_stage: str=None) -> Tuple[FederatedModel, Dict[str, torchvision.transforms.Compose]]:
     """Return a pytorch model and its associated transformation for training and testing """
     config = None
-    # CNN Models
     if model_name == "hugonet":
         config = (HugoNet(onServer, n_classes=3), hugonet_transform)
-    # Resnet models
     elif model_name == "resnet18":
         config = (FlResnet18(onServer, (3, 224, 224), n_classes), hugonet_transform)
     if config == None:
@@ -99,7 +96,7 @@ def load_model(model_name: str, onServer: bool, n_classes: int=3, input_shape: T
             raise NotImplementedError(f"model {model_name} is not implemented")
     if load_mlflow_model and registered_model_name != None:
         model, tf = config
-        model = load_pytorch_mlflow_model(registered_model_name, model)
+        model = load_pytorch_mlflow_model(registered_model_name, model, stage=model_stage)
         config = (model, tf)
 
     summary(config[0], input_shape)        
