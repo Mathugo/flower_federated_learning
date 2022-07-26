@@ -11,8 +11,6 @@ img_freq_train_valid = [{'train':0,'valid':0} for k in range(nb_clients)]
 
 dir = "data"
 
-
-
 def split_into_n_clients(nb_clients: int):
     
     for file in glob.glob(dir+"/*/*.jpg", recursive=True):
