@@ -16,7 +16,7 @@ class QuantizedModel(nn.Module):
         pass
 
 class PlModel(pl.LightningModule):
-    def __init__(self, learning_rate: float=1e-4, lr_scheduler: bool=True, criterion=nn.KLDivLoss(reduction='batchmean'), has_pretrained_weights: bool=False, *args, **kwargs):
+    def __init__(self, learning_rate: float=1e-4, lr_scheduler: bool=True, criterion=F.cross_entropy, has_pretrained_weights: bool=False, *args, **kwargs):
         super(PlModel, self).__init__(*args, **kwargs)
         self._criterion = criterion
         self._learning_rate = learning_rate
@@ -58,22 +58,19 @@ class PlModel(pl.LightningModule):
         accuracy = torchmetrics.functional.accuracy(predicted, labels, num_classes=n_classes, multiclass=True, average="macro")
         # Use the current of PyTorch logger
         self.log("loss_step", loss, on_step=True)
-        #self.log("accuracy", accuracy, on_step=True)
+        self.log("accuracy", accuracy)
         return {"loss": loss, "accuracy": accuracy}
     
     def configure_optimizers(self):
         # we can put multiple optimizers 
         opt_adam = torch.optim.Adam(self.parameters(), lr=self._learning_rate) 
         opt_sgd = torch.optim.SGD(self.parameters(), lr=self._learning_rate, momentum=0.8)
-
         if self._lr_scheduler:
-            lr_scheduler_adam = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt_adam, T_0=10, T_mult=2)
+            #lr_scheduler_adam = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt_adam, T_0=10, T_mult=2)
+            lr_scheduler_adam = torch.optim.lr_scheduler.StepLR(opt_adam, step_size=1)
             lr_scheduler_sgd = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt_sgd, T_0=10, T_mult=2)
-            #lr_scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=1)
-            # ReduceLROnPlateau
             return [opt_adam, opt_sgd], [lr_scheduler_adam, lr_scheduler_sgd]
-        return [opt_adam, opt_sgd]
-
+        return [ {"optimizer": opt_sgd, "frequency": 5}, {"optimizer": opt_adam, "frequency": 10}], [lr_scheduler_sgd, lr_scheduler_adam]
     @property
     def HasPretrainedWeights(self) -> bool:
         return self._has_pretrained_weights

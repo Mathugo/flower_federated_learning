@@ -100,7 +100,7 @@ class GearClassifyClient(fl.client.Client):
         mlflow.pytorch.autolog(log_every_n_step=1, log_models=False)
 
         with mlflow.start_run(run_name="test", nested=True) as run:
-            trainer = pl.Trainer(callbacks=[TQDMProgressBar(refresh_rate=1)], log_every_n_steps=5)
+            trainer = pl.Trainer(callbacks=[TQDMProgressBar(refresh_rate=1)], log_every_n_steps=1)
             results = trainer.test(self._model, testloader)[0]
             # returned metrics
             accuracy= results["accuracy"]

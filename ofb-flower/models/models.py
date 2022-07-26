@@ -142,7 +142,7 @@ class FlResnet18(FederatedModel, PlModel):
 
 class HubModel(FederatedModel, PlModel):
     """Hub Model"""
-    def __init__(self, onServer: bool, basename: str, n_classes: int, pretrained: bool=True, learning_rate: float=3e-4, alpha: float=None, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, onServer: bool, basename: str, n_classes: int, pretrained: bool=True, learning_rate: float=5e-4, alpha: float=None, *args: Any, **kwargs: Any) -> None:
         self._n_classes = n_classes
         self.alpha = alpha
         self.onserver = onServer
