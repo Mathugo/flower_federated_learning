@@ -8,7 +8,7 @@ class MLFlowClient:
         self._server_port = port
         self._client_name = client_name
         self._tracking_uri = f"http://{self._server_ip}:{self._server_port}"
-        print(f"[MLFlow] Connecting to {self._tracking_uri}") 
+        print(f"[MLFlow] Connecting to {self._tracking_uri}", file=sys.stderr) 
         mlflow.set_tracking_uri(self._tracking_uri)
         os.environ["MLFLOW_TRACKING_URI"] = self._tracking_uri
         print(f"[MLFlow] Done ..")

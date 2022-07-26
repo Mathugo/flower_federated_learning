@@ -1,16 +1,15 @@
 version: '3'
 services:
     flower:
-      restart: always
       build:
         context: ../
         dockerfile: ./client/Dockerfile_deb
       container_name: flower
       volumes:
             - ./data:/app/data
+            - ./lightning_logs:/app/lightning_logs
       ports:
         - "$FLWR_PORT:$FLWR_PORT"
-      network_mode: "host"
       expose:
         - "$FLWR_PORT"
       environment:

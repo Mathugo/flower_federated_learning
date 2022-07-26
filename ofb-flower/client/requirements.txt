@@ -1,10 +1,10 @@
 numpy
 flwr
-torch
-torchvision
-torchmetrics
+torch==1.11.0
+torchvision==0.12.0
+torchmetrics==0.9.2
+torchsummary==1.5.1
 imgaug 
-torchsummary
 pandas
 scikit-image==0.19.3
 scikit-learn==1.0.2
@@ -12,6 +12,6 @@ glob2
 timm
 requests
 mlflow
-1.0.5<=pytorch-lightning<=1.6.4
+pytorch-lightning==1.6.4
 pysftp
 pytorch-lightning-bolts

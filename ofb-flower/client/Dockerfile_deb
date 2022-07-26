@@ -1,5 +1,5 @@
 FROM debian:buster-slim
-
+#FROM python:3.8.2-slim-buster
 # basics
 RUN apt-get update
 RUN apt-get install libopenblas-dev libopenmpi-dev python3-setuptools python3-pip libjpeg-dev zlib1g-dev ffmpeg libsm6 libxext6  cmake -y
@@ -19,6 +19,8 @@ ADD client/src /app/src/
 ADD utils /app/utils
 ADD models /app/models
 ADD client/main.py /app/main.py
+
+ENV GIT_PYTHON_REFRESH=quiet
 
 WORKDIR /app
 

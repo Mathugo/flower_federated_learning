@@ -1,6 +1,6 @@
-import client.src.pipeline as pipe
+import src.pipeline as pipe
 from torch.utils.data import DataLoader, random_split
-from client.src.pipeline.transforms import hugonet_transform, mobile_ViT_transform, tfm
+from src.pipeline.transforms import hugonet_transform, mobile_ViT_transform, tfm
 import torchvision, sys, os
 from typing import Dict
 sys.path.append("..")
@@ -99,7 +99,7 @@ def load_model(model_name: str, onServer: bool, n_classes: int=3, input_shape: T
         model = load_pytorch_mlflow_model(registered_model_name, model, stage=model_stage)
         config = (model, tf)
 
-    summary(config[0], input_shape)        
+    #summary(config[0], input_shape)        
     return config
 
 def load_scripted_model(filename: str) -> nn.Module:

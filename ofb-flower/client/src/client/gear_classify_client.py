@@ -4,13 +4,14 @@ import torch, timeit, sys
 import flwr as fl
 from flwr.common import EvaluateIns, EvaluateRes, FitIns, FitRes, ParametersRes, Weights
 from ..pipeline import ClassifyDataset
-from utils.utils import set_weights, get_weights, print_auto_logged_info
+from utils.utils import set_weights, get_weights, print_auto_logged_info, ProgressBar
 from utils.mlflow_client import MLFlowClient
 from models.models import FederatedModel
 import pytorch_lightning as pl
 import mlflow
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import TQDMProgressBar
+
 # pylint: disable=no-member
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # pylint: enable=no-member
@@ -33,11 +34,11 @@ class GearClassifyClient(fl.client.Client):
     def fit(self, ins: FitIns) -> FitRes:
         """Train the client"""
 
-        print(f"Client {self.cid}: fit, config: {ins.config}")
+        print(f"Client {self.cid}: fit, config: {ins.config}", file=sys.stderr)
         #Get config for training and experiment
         self._get_config(ins)
-        print("[CLIENT] Fitting ..")
         # Set model parameters
+        print("[CLIENT] Setting weights from server ..", file=sys.stderr)
         set_weights(self._model, self._weights)
         if torch.cuda.is_available():
             kwargs = {
@@ -53,16 +54,12 @@ class GearClassifyClient(fl.client.Client):
         )
         print("Len train dataset {} len trailoader {}".format(len(self._trainset), len(trainloader)), file=sys.stderr)
         # # Initialize a trainer with accelerator="gpu"
-        trainer = pl.Trainer(max_epochs=self._epochs, callbacks=[TQDMProgressBar(refresh_rate=1)], log_every_n_steps=3)
+        trainer = pl.Trainer(max_epochs=self._epochs, callbacks=[TQDMProgressBar(refresh_rate=1)], log_every_n_steps=5)
         # Auto log all MLflow entities
         mlflow.pytorch.autolog(log_every_n_step=1, registered_model_name=self._model_registry_name, log_models=False)
         with mlflow.start_run(run_name="train", nested=True) as run:
+            print("[CLIENT] Fitting ..", file=sys.stderr)
             trainer.fit(self._model, trainloader)
-            mlflow.pytorch.log_model(
-            self._model, 
-            self._model.Basename,
-            registered_model_name=self._model_registry_name
-            )
             
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id), self._model.Basename)
         print("[CLIENT] Done", file=sys.stderr)
@@ -91,7 +88,7 @@ class GearClassifyClient(fl.client.Client):
     def evaluate(self, ins: EvaluateIns) -> EvaluateRes:
         """Evaluate training on client side """
 
-        print(f"Client {self.cid}: evaluate")
+        print(f"Client {self.cid}: evaluate", file=sys.stderr)
         weights = fl.common.parameters_to_weights(ins.parameters)
         # Use provided weights to update the local model
         set_weights(self._model, weights)
@@ -103,7 +100,7 @@ class GearClassifyClient(fl.client.Client):
         mlflow.pytorch.autolog(log_every_n_step=1, log_models=False)
 
         with mlflow.start_run(run_name="test", nested=True) as run:
-            trainer = pl.Trainer(callbacks=[TQDMProgressBar(refresh_rate=1)], log_every_n_steps=1)
+            trainer = pl.Trainer(callbacks=[TQDMProgressBar(refresh_rate=1)], log_every_n_steps=5)
             results = trainer.test(self._model, testloader)[0]
             # returned metrics
             accuracy= results["accuracy"]
