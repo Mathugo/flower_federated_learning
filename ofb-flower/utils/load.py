@@ -99,7 +99,7 @@ def load_model(model_name: str, onServer: bool, n_classes: int=3, input_shape: T
         model = load_pytorch_mlflow_model(registered_model_name, model, stage=model_stage)
         config = (model, tf)
 
-    summary(config[0], input_shape)        
+    #summary(config[0], input_shape)        
     return config
 
 def load_scripted_model(filename: str) -> nn.Module:

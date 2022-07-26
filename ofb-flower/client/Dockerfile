@@ -1,6 +1,6 @@
 FROM mathugo/flower-base
 
-RUN apt-get install wget -y
+RUN apt install libjpeg-dev zlib1g-dev
 
 # don't forget to mount data
 WORKDIR /app
@@ -11,7 +11,6 @@ RUN python3 -m pip install -r requirements.txt
 # Scripts needed for Flower client
 ADD client/src/client ./src/client
 ADD client/src/utils ./src/utils
-ADD client/src/models ./src/models
 ADD client/src/pipeline ./src/pipeline
 ADD client/src/app ./src/app
 ADD client/main.py ./main.py

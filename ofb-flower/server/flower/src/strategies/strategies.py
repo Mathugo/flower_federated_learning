@@ -33,7 +33,7 @@ class CustomModelStrategyFedAvg(FedAvg, MLFlowStrategy):
         aggregated_parameters, _ = aggregated_parameters_tuple
         if aggregated_parameters is not None:
             self._set_log_aggregated_weights(aggregated_parameters, rnd)
-            
+        
         return aggregated_parameters_tuple
 
     def aggregate_evaluate(
@@ -49,6 +49,7 @@ class CustomModelStrategyFedAvg(FedAvg, MLFlowStrategy):
             return None
         examples = [r.num_examples for _, r in results]
         self._format_metrics(results) 
-        self._log_metrics(rnd, failures)
+        self._log_metrics(rnd, failures, examples)
+        print("[SERVER] Sending aggregated results ..", file=sys.stderr)
         
-        return super().aggregate_evaluate(rnd, results, failures, examples)
+        return super().aggregate_evaluate(rnd, results, failures)

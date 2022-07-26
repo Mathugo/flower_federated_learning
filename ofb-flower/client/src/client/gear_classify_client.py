@@ -54,16 +54,11 @@ class GearClassifyClient(fl.client.Client):
         )
         print("Len train dataset {} len trailoader {}".format(len(self._trainset), len(trainloader)))
         # # Initialize a trainer with accelerator="gpu"
-        trainer = pl.Trainer(max_epochs=self._epochs, callbacks=[TQDMProgressBar(refresh_rate=5)], log_every_n_steps=5)
+        trainer = pl.Trainer(max_epochs=self._epochs, callbacks=[TQDMProgressBar(refresh_rate=1)], log_every_n_steps=5)
         # Auto log all MLflow entities
         mlflow.pytorch.autolog(log_every_n_step=1, registered_model_name=self._model_registry_name, log_models=False)
         with mlflow.start_run(run_name="train", nested=True) as run:
             trainer.fit(self._model, trainloader)
-            mlflow.pytorch.log_model(
-            self._model, 
-            self._model.Basename,
-            registered_model_name=self._model_registry_name
-            )
             
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id), self._model.Basename)
         print("[CLIENT] Done")
@@ -104,7 +99,7 @@ class GearClassifyClient(fl.client.Client):
         mlflow.pytorch.autolog(log_every_n_step=1, log_models=False)
 
         with mlflow.start_run(run_name="test", nested=True) as run:
-            trainer = pl.Trainer(callbacks=[TQDMProgressBar(refresh_rate=5)], log_every_n_steps=1)
+            trainer = pl.Trainer(callbacks=[TQDMProgressBar(refresh_rate=1)], log_every_n_steps=1)
             results = trainer.test(self._model, testloader)[0]
             # returned metrics
             accuracy= results["accuracy"]
