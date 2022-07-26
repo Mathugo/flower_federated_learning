@@ -23,7 +23,7 @@ class ClassifyDataset(Dataset):
         self._transform = transform
         self._input_size = input_size
         self._n_classes = 0
-        print("[DATASET] Len of the dataset {}".format(len(self._labels[0])))
+        print("[DATASET] Len of the dataset {}".format(len(self._labels[0])), file=sys.stderr)
 
     def _get_labels(self) -> List:
         """ Get labels from a root directory, in dataframe format {'images': [], 'labels': []} """
@@ -36,7 +36,7 @@ class ClassifyDataset(Dataset):
         if os.path.isdir(self._root_dir):
             for label_dir in os.listdir(self._root_dir):
                 if os.path.isdir(os.path.join(self._root_dir, label_dir)):
-                    print("[LABEL] Getting label {} -> {}".format(label, label_dir))
+                    print("[LABEL] Getting label {} -> {}".format(label, label_dir), file=sys.stderr)
                     self._n_classes+=1
                     label_dir = os.path.join(label_dir, self._extension)
                     for img in glob.glob(os.path.join(self._root_dir, label_dir)):
@@ -55,7 +55,7 @@ class ClassifyDataset(Dataset):
     def __getitem__(self, idx: int):
         """ get single item/image from the dataset"""
         if torch.is_tensor(idx):
-            print("Tensor in getitem !")
+            print("Tensor in getitem !", file=sys.stderr)
             idx = idx.tolist()
         img_name = self._labels[0][idx]
         one_hot_label = self._labels[1][idx]

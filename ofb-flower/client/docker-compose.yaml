@@ -1,0 +1,26 @@
+version: '3'
+services:
+    flower:
+      restart: always
+      build:
+        context: ../
+        dockerfile: ./client/Dockerfile_deb
+      container_name: flower
+      volumes:
+            - ./data:/app/data
+      ports:
+        - "$FLWR_PORT:$FLWR_PORT"
+      network_mode: "host"
+      expose:
+        - "$FLWR_PORT"
+      environment:
+        - N_CLASSES=${N_CLASSES}
+        - FLWR_ADDRESS=${FLWR_ADDRESS}
+        - FLWR_PORT=${FLWR_PORT}
+        - CID=${CID}
+        - NAME=${NAME}
+        - MLFLOW_PORT=${MLFLOW_PORT}
+        - MLFLOW_IP=${MLFLOW_IP}
+        - NUM_WORKERS=${NUM_WORKERS}
+        - MODEL=${MODEL}
+      command: python3 main.py --name ${NAME} --server_address ${FLWR_ADDRESS} --server_port ${FLWR_PORT} --cid ${CID} --model ${MODEL} --n_classes=${N_CLASSES} --data_augmentation --mlflow_server_ip ${MLFLOW_IP} --mlflow_server_port ${MLFLOW_PORT}

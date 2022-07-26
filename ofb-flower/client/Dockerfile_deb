@@ -1,0 +1,24 @@
+FROM debian:buster-slim
+
+# basics
+RUN apt-get update
+RUN apt-get install libopenblas-dev libopenmpi-dev python3-setuptools python3-pip libjpeg-dev zlib1g-dev ffmpeg libsm6 libxext6  cmake -y
+
+# necessary packages before the requirements.txt
+RUN pip3 install Cython numpy setuptools
+
+# update pip
+RUN pip3 install --upgrade pip
+
+ADD client/requirements.txt .
+RUN pip3 install -r requirements.txt
+
+RUN mkdir /app
+
+ADD client/src /app/src/
+ADD utils /app/utils
+ADD models /app/models
+ADD client/main.py /app/main.py
+
+WORKDIR /app
+

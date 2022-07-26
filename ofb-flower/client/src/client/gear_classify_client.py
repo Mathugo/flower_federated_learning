@@ -1,6 +1,6 @@
 """Flower client example using PyTorch for Gear image classification."""
 from click import progressbar
-import torch, timeit
+import torch, timeit, sys
 import flwr as fl
 from flwr.common import EvaluateIns, EvaluateRes, FitIns, FitRes, ParametersRes, Weights
 from ..pipeline import ClassifyDataset
@@ -11,7 +11,6 @@ import pytorch_lightning as pl
 import mlflow
 from pytorch_lightning import loggers as pl_loggers
 from pytorch_lightning.callbacks import TQDMProgressBar
-
 # pylint: disable=no-member
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 # pylint: enable=no-member
@@ -52,9 +51,9 @@ class GearClassifyClient(fl.client.Client):
         trainloader = torch.utils.data.DataLoader(
             self._trainset, batch_size=self._batch_size, shuffle=True
         )
-        print("Len train dataset {} len trailoader {}".format(len(self._trainset), len(trainloader)))
+        print("Len train dataset {} len trailoader {}".format(len(self._trainset), len(trainloader)), file=sys.stderr)
         # # Initialize a trainer with accelerator="gpu"
-        trainer = pl.Trainer(max_epochs=self._epochs, callbacks=[TQDMProgressBar(refresh_rate=5)], log_every_n_steps=5)
+        trainer = pl.Trainer(max_epochs=self._epochs, callbacks=[TQDMProgressBar(refresh_rate=1)], log_every_n_steps=3)
         # Auto log all MLflow entities
         mlflow.pytorch.autolog(log_every_n_step=1, registered_model_name=self._model_registry_name, log_models=False)
         with mlflow.start_run(run_name="train", nested=True) as run:
@@ -66,13 +65,13 @@ class GearClassifyClient(fl.client.Client):
             )
             
         print_auto_logged_info(mlflow.get_run(run_id=run.info.run_id), self._model.Basename)
-        print("[CLIENT] Done")
+        print("[CLIENT] Done", file=sys.stderr)
         # Return the refined weights and the number of examples used for training
         weights_prime: Weights = get_weights(self._model)
         params_prime = fl.common.weights_to_parameters(weights_prime)
         num_examples_train = len(self._trainset)
         metrics = {"duration": timeit.default_timer() - self._fit_begin}
-        print("[CLIENT] Number of trainning examples {}".format(num_examples_train))
+        print("[CLIENT] Number of trainning examples {}".format(num_examples_train), file=sys.stderr)
         return FitRes(
             parameters=params_prime, num_examples=num_examples_train, metrics=metrics
         )
@@ -104,7 +103,7 @@ class GearClassifyClient(fl.client.Client):
         mlflow.pytorch.autolog(log_every_n_step=1, log_models=False)
 
         with mlflow.start_run(run_name="test", nested=True) as run:
-            trainer = pl.Trainer(callbacks=[TQDMProgressBar(refresh_rate=5)], log_every_n_steps=1)
+            trainer = pl.Trainer(callbacks=[TQDMProgressBar(refresh_rate=1)], log_every_n_steps=1)
             results = trainer.test(self._model, testloader)[0]
             # returned metrics
             accuracy= results["accuracy"]

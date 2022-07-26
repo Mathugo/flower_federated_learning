@@ -30,7 +30,7 @@ class Args:
         )
         parser.add_argument(
             "--data_dir",
-            default="data/Gear_Classify.v3-gear-fl-raw",
+            default="data/Gear3",
             type=str,
             help="Directory where the dataset lives",
         )

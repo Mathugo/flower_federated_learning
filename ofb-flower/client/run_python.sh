@@ -1,1 +1,1 @@
-python3 main.py --name $1 --server_address 0.0.0.0 --server_port 4042 --cid $2 --model mobilenetv3_rw --n_classes 3 --data_augmentation --mlflow_server_ip 0.0.0.0 --mlflow_server_port 80
+python3.7 main.py --name $1 --server_address 0.0.0.0 --server_port 4042 --cid $2 --model mobilenetv3_rw --n_classes 3 --data_augmentation --mlflow_server_ip 0.0.0.0 --mlflow_server_port 80
