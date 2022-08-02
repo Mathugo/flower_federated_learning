@@ -16,43 +16,33 @@ from datetime import *
 
 class ResHugoNet(FederatedModel, PlModel):
     """Simple 4 layers deep CNN with residual connections"""
-    def __init__(self, onServer: bool, trainconfig: TrainingConfig, *args, **kwargs: Any) -> None:
+    def __init__(self, onServer: bool, trainconfig: TrainingConfig, in_channels: int=3, out_channels_res_block: int=128,  *args, **kwargs: Any) -> None:
         self._n_classes=trainconfig.n_classes
+        self.in_channels=in_channels
+        self.out_channels=out_channels_res_block
+
         FederatedModel.__init__(self, trainconfig, onServer, *args, **kwargs)
         PlModel.__init__(self, trainconfig, has_pretrained_weights=False, *args, **kwargs)
-   
-        self.block1 = nn.Sequential(
-            nn.Conv2d(3, 16, kernel_size=(3,3), stride=1, padding=1),
-            nn.BatchNorm2d(16, affine=False),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(16, 32, kernel_size=(3,3), stride=1, padding=1),
-            nn.BatchNorm2d(32, affine=False),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=(2,2), stride=1, padding=0),
-            nn.Conv2d(32, 64, kernel_size=(3,3), stride=1, padding=1),
+        
+        self.res_block_1 = nn.Sequential(
+            nn.Conv2d(in_channels, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64, affine=False),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=(2,2), stride=1, padding=0),
-            nn.Conv2d(64, 128, kernel_size=(3,3), stride=1, padding=1),
-            nn.BatchNorm2d(128, affine=False),
+            nn.Conv2d(64, out_channels_res_block, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels_res_block, affine=False),
             nn.ReLU(inplace=True),
         )
+        self.res_block_main = nn.Sequential(
+            nn.Conv2d(out_channels_res_block, out_channels_res_block, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channels_res_block, affine=False),
+            nn.ReLU(inplace=True),
+        )
+        self.avg = nn.AvgPool2d(kernel_size=7, stride=1, padding=1)
 
-        self.res_block = nn.Sequential(
-            nn.Conv2d(128, 128, kernel_size=(5,5), padding=1, stride=1),
-            nn.BatchNorm2d(128, affine=False),
-            nn.ReLU(inplace=True),
-        )
-        self.block2 = nn.Sequential(
-            nn.Conv2d(128, 256, kernel_size=(5,5), padding=1),
-            nn.BatchNorm2d(256, affine=False),
-            nn.ReLU(inplace=True))
-        
         self.end = nn.Sequential(
-            nn.AvgPool1d(kernel_size=2),
             nn.Dropout(p=0.5),
-            nn.Linear(256*1000, self._n_classes))
-
+            nn.Linear(1024, self._n_classes))
+        
     def test_step(self, batch, batch_idx) -> float:
         return super().test_step(batch, batch_idx, self._n_classes)
 
@@ -61,19 +51,26 @@ class ResHugoNet(FederatedModel, PlModel):
 
     def forward(self, x: Tensor) -> Tensor:
         """Compute forward pass."""
-        
-        x = self.block1(x)
+        # inspired by https://arxiv.org/pdf/1608.06993.pdf Densely Connected Convolutional Networks
 
-        x = self.res_block(x)
-        residual1 = x
-        x = self.res_block(x)
-        residual2 = x
-        x +=residual1
-        x = self.res_block(x)
-        x +=residual2
-        x = self.block2(x)
-        self.end(x)
-        
+        x = self.res_block_1(x)
+        residual_1 = x
+        x = self.res_block_main(x)
+        x += residual_1
+
+        residual_2 = x        
+        x = self.res_block_main(x)
+        x+= residual_2 + residual_1
+
+        residual_3 = x
+        x = self.res_block_main(x)
+        x += residual_1 + residual_2 + residual_3
+
+        x = self.res_block_main(x)
+        x = self.avg(x)
+        x = x.view(-1, 1024)
+        x = self.end(x)
+     
         # Apply softmax to x
         output = F.log_softmax(x, dim=1)
         return output
