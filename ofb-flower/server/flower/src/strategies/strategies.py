@@ -6,7 +6,7 @@ from flwr.common import EvaluateRes
 from flwr.server.client_proxy import ClientProxy
 from datetime import *
 import os, torch, mlflow
-from flwr.server.strategy import FedAvg
+from flwr.server.strategy import FedAvg, FedAdam, FedYogi, FedAdagrad
 from models import FederatedModel
 from flwr.server.strategy.fedopt import FedOpt
 from .hugostrategy import MLFlowStrategy

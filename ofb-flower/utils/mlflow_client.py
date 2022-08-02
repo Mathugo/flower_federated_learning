@@ -13,7 +13,6 @@ class MLFlowClient:
         os.environ["MLFLOW_TRACKING_URI"] = self._tracking_uri
         print(f"[MLFlow] Done ..")
         print(f"Tracking uri : {mlflow.get_tracking_uri()}", file=sys.stderr)
-        #print(f"Artifat uri : {mlflow.get_artifact_uri()}", file=sys.stderr)
     
     @property
     def ClientName(self):

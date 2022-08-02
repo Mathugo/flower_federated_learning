@@ -4,10 +4,9 @@ import imgaug as ia
 import numpy as np
 from timm.data.auto_augment import rand_augment_transform
 
-
 #TIMM Data aug
 # We want medium/small magnitude, small std and 3 augmentations per images
-tfm = 'rand-m7-n3-mst1'
+tfm = 'rand-m7-n3-mstd1'
 
 class ImgAugTransform:
   def __init__(self):

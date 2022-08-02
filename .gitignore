@@ -6,7 +6,7 @@ ofb-flower/server/dbdata/*
 ofb-flower/server/mlflow_storage/*
 ofb-flower/server/flower/models
 ofb-flower/server/flower/models/hugonet/aggr_weights
-
+ofb-flower/client/lightning_logs
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

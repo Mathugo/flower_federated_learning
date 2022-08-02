@@ -1,10 +1,9 @@
-flwr
+flwr==0.19.0
 mlflow
 torchvision
 pathlib
 torchsummary
 numpy 
-einops
 scikit-image
 sklearn
 imgaug

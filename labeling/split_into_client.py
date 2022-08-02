@@ -1,16 +1,14 @@
 import glob, os, shutil
 import random
-import numpy
 output_dir="clients"
 client_name="client"
-nb_clients = 3
-valid_freq = 0.2
+nb_clients = 4
+valid_freq = 0.35
 
 img_freq = [0]*nb_clients    
-img_freq_train_valid = [{'train':0,'valid':0} for k in range(nb_clients)]
+img_freq_train_valid = [{'train':0,'valid':0, "gear_black": 0, "gear_red": 0, "pic": 0} for k in range(nb_clients)]
 
 dir = "data"
-
 def split_into_n_clients(nb_clients: int):
     
     for file in glob.glob(dir+"/*/*.jpg", recursive=True):
@@ -52,8 +50,9 @@ def split_into_n_clients(nb_clients: int):
         else:
             to_copy = train_folder
             img_freq_train_valid[client_i]["train"]+=1
-
+        
         shutil.copy(file, to_copy)
+        img_freq_train_valid[client_i][os.path.basename(to_copy)]+=1
         print(to_copy)
     
     print(f"Number of images in clients {img_freq}")
@@ -78,6 +77,6 @@ def split_into_n_clients(nb_clients: int):
         
     """
 
-split_into_n_clients(3)
+split_into_n_clients(4)
 
     

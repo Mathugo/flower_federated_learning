@@ -2,32 +2,38 @@ version: '3.3'
 
 services:
     flower:
-      restart: always
-      build:
-        context: ../
-        dockerfile: ./server/flower/Dockerfile
-      container_name: flower
-      ports:
+        build:
+            context: ../
+            dockerfile: ./server/flower/Dockerfile
+        container_name: flower
+        ports:
         - "$FLWR_PORT:$FLWR_PORT"
-      expose:
+        expose:
         - "$FLWR_PORT"
-      networks:
+        networks:
         - backend
-      environment:
-        - N_CLASSES=${N_CLASSES}
-        - FLWR_ADDRESS=${FLWR_ADDRESS}
-        - FLWR_PORT=${FLWR_PORT}
-        - ROUNDS=${ROUNDS}
+        environment:
+        - SERVER_ADDRESS=${FLWR_ADDRESS}:${FLWR_PORT}
+        - MLFLOW_HOST=${MLFLOW_HOST}
+        - MLFLOW_PORT=${MLFLOW_PORT}
+        - LOG_HOST=${LOG_HOST}
         - FRACTION_FIT=${FRACTION_FIT}
         - FRACTION_EVAL=${FRACTION_EVAL}
         - MIN_SAMPLE_SIZE=${MIN_SAMPLE_SIZE}
         - MIN_NUM_CLIENTS=${MIN_NUM_CLIENTS}
-        - LOG_HOST=${LOG_HOST}
-        - BATCH_SIZE=${BATCH_SIZE}
         - NUM_WORKERS=${NUM_WORKERS}
-        - LOCAL_EPOCHS=${LOCAL_EPOCHS}
+        
         - MODEL=${MODEL}
-      command: python3 main.py --server_address ${FLWR_ADDRESS}:${FLWR_PORT} --mlflow_server_ip ${MLFLOW_HOST} --mlflow_server_port ${MLFLOW_PORT} --load_mlflow_model --rounds ${ROUNDS} --fraction_fit ${FRACTION_FIT} --fraction_eval ${FRACTION_EVAL} --min_sample_size ${MIN_SAMPLE_SIZE} --local_epochs ${LOCAL_EPOCHS} --model ${MODEL} --n_classes ${N_CLASSES} --num_workers=${NUM_WORKERS} --batch_size ${BATCH_SIZE} 
+        - N_CLASSES=${N_CLASSES}
+        - ROUNDS=${ROUNDS}
+        - LOCAL_EPOCHS=${LOCAL_EPOCHS}
+        - BATCH_SIZE=${BATCH_SIZE}
+        - LR=${LR}
+        - LR_SCHEDULER=${LR_SCHEDULER}
+        - CRITERION=${CRITERION}
+        - DATA_AUGMENTATION=${DATA_AUGMENTATION}
+        - LOAD_MLFLOW_MODEL=${LOAD_MLFLOW_MODEL}
+        command: python3 main.py 
     db:
         restart: always
         image: mysql/mysql-server:8.0.29
@@ -43,6 +49,7 @@ services:
             - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
         volumes:
             - ./dbdata:/var/lib/mysql
+            - ./mlflow/storage:/app/
     web:
         restart: always
         build: ./mlflow
@@ -71,6 +78,5 @@ networks:
         driver: bridge
     backend:
         driver: bridge
-
 volumes:
     dbdata:

@@ -24,6 +24,9 @@ class Args:
             "--name", type=str, required=True, help="Client name (no default)"
         )
         parser.add_argument(
+            "--run_name", type=str, required=True, help="name of run for mlflow (default: random_run)", default="random_run"
+        )
+        parser.add_argument(
             "--log_host",
             type=str,
             help="Logserver address (no default)",
@@ -33,19 +36,6 @@ class Args:
             default="data/Gear3",
             type=str,
             help="Directory where the dataset lives",
-        )
-        parser.add_argument(
-            "--model",
-            type=str,
-            default="resnet18",
-            choices=["hugonet", "resnet18", "resnetv2_101x1_bitm", "mobilenetv3_rw", "efficientnet_b0", "vit_base_patch16_224", "vit_small_patch16_224", "vit_small_patch32_224", "vit_tiny_patch16_224"],
-            help="model to train",
-        )
-        parser.add_argument(
-            "--n_classes",
-            type=int,
-            default=3,
-            help="number of classes to detect"
         )
         parser.add_argument(
             "--mlflow_server_ip",
