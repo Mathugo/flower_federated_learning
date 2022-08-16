@@ -8,7 +8,6 @@ from typing import List
 from mlflow.tracking import MlflowClient
 from tqdm.auto import tqdm
 import torch
-from pytorch_lightning.callbacks import Callback
 
 def print_auto_logged_info(r, model_name):
     """

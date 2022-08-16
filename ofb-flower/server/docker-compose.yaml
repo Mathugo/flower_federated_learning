@@ -2,6 +2,12 @@ version: '3.3'
 
 services:
     flower:
+        deploy:
+            restart_policy:
+                condition: on-failure
+                delay: 3s
+                max_attempts: 2
+                window: 30s
         build:
             context: ../
             dockerfile: ./server/flower/Dockerfile

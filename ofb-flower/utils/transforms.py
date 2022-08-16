@@ -33,7 +33,6 @@ class ImgAugTransform:
     img = np.array(img)
     return self.aug.augment_image(img)
 
-
 """ torch transforms """
 mobile_ViT_transform = {
     'train': transforms.Compose([

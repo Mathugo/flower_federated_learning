@@ -4,7 +4,7 @@ from .dataset import ClassifyDataset
 from torch.utils.data import DataLoader, random_split
 from typing import Dict
 from models.base_models import FederatedModel
-from models import HugoNet, ResHugoNet, HubModel
+from models import HugoNet, ResHugoNet, HubModel, ResNet
 from pathlib import Path
 from typing import Tuple
 from torchsummary import summary 
@@ -125,7 +125,7 @@ def load_model(trainconfig: TrainingConfig, onServer: bool, load_mlflow_model: b
     if trainconfig.model == "hugonet":
         config = (HugoNet(onServer, trainconfig), hugonet_transform)
     elif trainconfig.model == "reshugonet":
-        config = (ResHugoNet(onServer, trainconfig), hugonet_transform)
+        config = (ResNet(onServer, trainconfig), hugonet_transform)
     if config == None:
         print(f"model {trainconfig.model} is not implemented, trying to catch it on the hub ..", file=sys.stderr)
         #try:

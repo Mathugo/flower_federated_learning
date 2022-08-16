@@ -4,7 +4,7 @@ from typing import Any, Dict, Tuple, List
 import torch.nn as nn
 import torchmetrics
 import pytorch_lightning as pl
-import os, mlflow, torch, numpy
+import os, mlflow, torch, numpy, torch
 import flwr as fl
 from datetime import datetime
 import torch.nn.functional as F
@@ -40,6 +40,7 @@ class PlModel(pl.LightningModule):
         self._learning_rate = trainconfig.lr
         self._lr_scheduler = trainconfig.lr
         self._has_pretrained_weights = has_pretrained_weights
+        self._last_loss = None
     
     def test_step(self, batch, batch_idx, n_classes, *args, **kwargs):
         """
@@ -104,7 +105,7 @@ class PlModel(pl.LightningModule):
         """
 
         x, y = batch
-        logits = self(x)
+        logits = torch.squeeze(self(x))
         loss = self._criterion(logits, y)
         _, predicted = torch.max(logits.data, -1) 
         _, labels = torch.max(y, -1)
@@ -114,7 +115,11 @@ class PlModel(pl.LightningModule):
         self.log("loss_step", loss, on_step=True)
         self.log("accuracy", accuracy)
         return {"loss": loss, "accuracy": accuracy}
-    
+
+    def training_epoch_end(self, outputs):
+        loss = dict(outputs[-1][1])["loss"]
+        self.LastLoss = loss
+
     def configure_optimizers(self):
         """
         We are returning a list of dictionaries, where each dictionary contains an optimizer and a
@@ -149,6 +154,14 @@ class PlModel(pl.LightningModule):
           A boolean value.
         """
         return self._has_pretrained_weights
+    
+    @property
+    def LastLoss(self) -> float:
+        return self._last_loss.item()
+    
+    @LastLoss.setter
+    def LastLoss(self, value):
+        self._last_loss = value
 
 class FederatedModel(nn.Module):
     """Base class for federated models
@@ -165,7 +178,11 @@ class FederatedModel(nn.Module):
         self._base_name = trainconfig.model
         self._on_server = onServer
         self._fusion_layer=quantization_fusion_layer
-    def get_weights(self) -> numpy.ndarray:
+
+    def get_parameters(self):
+        return [val.cpu().numpy() for _, val in self.state_dict().items()]
+
+    def get_weights(self):
         """
         It returns a list of NumPy ndarrays, where each ndarray is a weight matrix
         

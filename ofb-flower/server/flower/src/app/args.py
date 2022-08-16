@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from os import environ
 
 """DEFAULTS PARAMETERS"""
-SERVER_ADDRESS="0.0.0.0"
-ROUNDS=2
+SERVER_ADDRESS="0.0.0.0:4042"
+ROUNDS=10
 # Fraction of available clients used for fit (default: 1)
 FRACTION_FIT=1
 # Fraction of available clients used for evaluate (default: 0.5)
@@ -18,14 +18,14 @@ MODEL_STAGE='Staging'
 LOG_HOST=None
 #Model to train ("hugonet", "reshugonet", "resnetv2_101x1_bitm", "mobilenetv3_rw", "efficientnet_b0", "vit_base_patch16_224", "vit_small_patch16_224", "vit_small_patch32_224", "vit_tiny_patch16_224")
 # The model that is being used for training.
-MODEL="mobilenetv3_rw"
+MODEL="efficientnet_b0"
 #Number of classes
 N_CLASSES=3
 #Batch size
 BATCH_SIZE=32
 #Learning rate for client training
-LR=1e-4
-LR_SCHEDULER=False
+LR=5e-4
+LR_SCHEDULER=True
 #Freezing coefficient to apply to layers when using transfer learning with big models, 0<=freezing_coeff<=1 (default None)
 FREEZING_COEFF=None
 #Criterion for training and testing
@@ -34,10 +34,10 @@ CRITERION="cross_entropy"
 NUM_WORKERS=0
 #LOCAL EPOCHS TO PERFORM ON EACH CLIENT
 LOCAL_EPOCHS=2
-MLFLOW_SERVER_PORT=4040
+MLFLOW_SERVER_PORT=80
 MLFLOW_SERVER_IP="localhost"
 #Data augmentation to apply on client dataset
-DATA_AUGMENTATION=False
+DATA_AUGMENTATION=True
 #If you load your samples in the Dataset on CPU and would like to push it during training to the GPU, you can speed up the host to device transfer by enabling pin_memory.
 PIN_MEMORY=False
 LOAD_MLFLOW_MODEL=True

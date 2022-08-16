@@ -40,7 +40,7 @@ class GearClassifyClient(fl.client.Client):
         """Get parameters of the local model."""
         raise Exception("Not implemented (server-side parameter initialization)")
 
-    def _get_config(self, ins: FitIns):
+    def _get_config(self, ins: FitIns, set_weights: bool=True):
         """
         > The function takes in a FitIns object, which contains the parameters and configuration for the
         model, and then sets the weights, configuration, and training configuration for the model
@@ -50,6 +50,12 @@ class GearClassifyClient(fl.client.Client):
         """
         # get weights from server
         self._weights: Weights = fl.common.parameters_to_weights(ins.parameters)
+        print("[CLIENT] Setting weights from server ..", file=sys.stderr)
+        try:
+            if set_weights:
+                self._model.set_weights(self._weights)
+        except Exception as e:
+            print(f"[CLIENT] Unable to set weights from server : {e}", file=sys.stderr)
         self._config = ins.config
         self.trainconfig = TrainingConfig()
         self._fit_begin = timeit.default_timer()
@@ -66,8 +72,8 @@ class GearClassifyClient(fl.client.Client):
             self.trainconfig.freezing_coeff = None
 
         self.trainconfig.model = str(self._config["model"])
-        self._model = self.trainconfig.model
-        self._model_registry_name = f"{self.cid}-{self._name}-{self._model}"
+        self._model_str = self.trainconfig.model
+        self._model_registry_name = f"{self.cid}-{self._name}-{self._model_str}"
         self.trainconfig.n_classes = int(self._config["n_classes"])
         self.trainconfig.data_augmentation = bool(self._config["data_augmentation"])
         self.trainconfig.pin_memory = bool(self._config["pin_memory"])
@@ -93,13 +99,17 @@ class GearClassifyClient(fl.client.Client):
           The refined weights and the number of examples used for training
         """
         print(f"Client {self.cid}: fit, config: {ins.config}", file=sys.stderr)
-        self._get_config(ins)
         if not self._has_already_load_dataset_model: 
+            """In first get config from server, we get the config with weight then we update the local weights,
+                After we just have the model instance so we can set the weights directly
+            """
+            self._get_config(ins, set_weights=False)
             self._load_model_and_dataset()
+            self._model.set_weights(self._weights)
             self._has_already_load_dataset_model = True
+        else:
+            self._get_config(ins)
         
-        print("[CLIENT] Setting weights from server ..", file=sys.stderr)
-        self._model.set_weights(self._weights)
         if torch.cuda.is_available():
             kwargs = {
                 "num_workers": self.trainconfig.num_workers,
@@ -127,8 +137,8 @@ class GearClassifyClient(fl.client.Client):
         weights_prime: Weights = self._model.get_weights()
         params_prime = fl.common.weights_to_parameters(weights_prime)
         num_examples_train = len(self._trainset)
-        metrics = {"duration": timeit.default_timer() - self._fit_begin}
-        print("[CLIENT] Number of trainning examples {}".format(num_examples_train), file=sys.stderr)
+        metrics = {"loss": self._model.LastLoss, "duration": timeit.default_timer() - self._fit_begin}
+        print("[CLIENT] Loss {} Number of trainning examples {}".format(self._model.LastLoss, num_examples_train), file=sys.stderr)
         return FitRes(
             parameters=params_prime, num_examples=num_examples_train, metrics=metrics
         ) 
@@ -146,7 +156,13 @@ class GearClassifyClient(fl.client.Client):
         """
         print(f"Client {self.cid}: evaluate", file=sys.stderr)
         weights = fl.common.parameters_to_weights(ins.parameters)
-        self._model.set_weights(weights)
+        print("[CLIENT] Setting weights from server ..", file=sys.stderr)
+        try:
+            self._model.set_weights(weights)
+            self._weights = weights
+        except Exception as e:
+            print(f"[CLIENT] Unable to set weights from server : {e}", file=sys.stderr)
+
         testloader = torch.utils.data.DataLoader(
             self._testset, batch_size=self.trainconfig.batch_size
         )

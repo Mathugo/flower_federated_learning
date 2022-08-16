@@ -4,17 +4,23 @@ from models.base_models import FederatedModel
 from utils.utils import TrainingConfig
 from utils.load import load_model
 from utils.mlflow_client import MLFlowClient
-from ..strategies import CustomModelStrategyFedAvg
+from ..strategies import CustomModelStrategyFedAvg, LrMFedAvg
 from typing import Dict
 from src.app.args import Args
 import flwr as fl
 
 class ClassificationServer:
     def __init__(self, args: Args):
-        """Federated Server: server-side parameter initialization"""
+        """
+        The function initializes the server-side parameters, creates a training configuration, tests the
+        given parameters, and loads the configuration
+        
+        Args:
+          args (Args): Args: The arguments passed to the server.
+        """
         self._args=args
         self._registered_model_name = f"aggregated-{self._args.model}"
-        self._mlflow_client = MLFlowClient("server", args.mlflow_server_ip, args.mlflow_server_port)
+        self._mlflow_client = MLFlowClient("server", server_ip=args.mlflow_server_ip, port=args.mlflow_server_port)
         self._last_run_id = None
         self._create_trainingconfig()
         self._test_given_parameters()
@@ -73,7 +79,8 @@ class ClassificationServer:
         > Loads the model and weights from the specified model folder or MLflow model
         """
         print("[SERVER] Loading model and weights ..")
-        self._model, self._transforms = load_model(self._trainconfig, True,
+        # 
+        self._model, self._transforms = load_model(self._trainconfig, True, 
         load_mlflow_model=self._args.load_mlflow_model, 
         registered_model_name=self._registered_model_name, 
         model_stage=self._args.model_stage)  
@@ -86,7 +93,7 @@ class ClassificationServer:
         """
         The function configures the strategy for aggregation, training and evaluation
         """
-        self._strategy = CustomModelStrategyFedAvg(
+        self._strategy = LrMFedAvg(
         self._model,
         self._registered_model_name,
         fraction_fit=int(float(self._args.fraction_fit)),
@@ -96,7 +103,7 @@ class ClassificationServer:
         min_available_clients=self._args.min_num_clients,
         on_fit_config_fn=self._fit_config,
         on_evaluate_config_fn=self._evaluate_config,
-        initial_parameters=fl.common.weights_to_parameters(self._model_weight))
+        initial_parameters=fl.common.weights_to_parameters(self._model.get_weights()))
 
     def _evaluate_config(self, rnd: int) -> Dict[str, int]:
         """Return evaluation configuration dict for each round.
@@ -122,7 +129,6 @@ class ClassificationServer:
           A dictionary with the hyperparameters and training settings.
         """        
         config = {
-        # hyper parameters
         "epoch_global": str(rnd),
         "epochs": str(self._args.local_epochs),
         "batch_size": str(self._args.batch_size),
@@ -133,7 +139,6 @@ class ClassificationServer:
         "model": str(self._args.model),
         "n_classes": str(self._args.n_classes),
         "data_augmentation": str(self._args.data_augmentation),
-        # training settings
         "num_workers": str(self._args.num_workers),
         "pin_memory": str(self._args.pin_memory),
         }
@@ -147,7 +152,7 @@ class ClassificationServer:
           run_name (str): The name of the run. Defaults to Aggreg-FedAvg
         """
         print(f"[SERVER] Listening to {self._args.server_address} ..", file=sys.stderr)
-        fl.common.logger.configure("server", host=self._args.log_host)
+        fl.common.logger.configure("server")
         self._client_manager = fl.server.SimpleClientManager()
         self._server = fl.server.Server(client_manager=self._client_manager, strategy=self._strategy)
         self._mlflow_client.set_experiment("Server-aggregation")

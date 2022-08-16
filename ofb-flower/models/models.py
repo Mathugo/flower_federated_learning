@@ -14,6 +14,76 @@ from datetime import *
 # kl_loss = nn.KLDivLoss(reduction = 'batchmean')
 # Focal Loss
 
+class ResBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, downsample):
+        super().__init__()
+        if downsample:
+            self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=2, padding=1)
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2),
+                nn.BatchNorm2d(out_channels)
+            )
+        else:
+            self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+            self.shortcut = nn.Sequential()
+
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+    def forward(self, input):
+        shortcut = self.shortcut(input)
+        input = nn.ReLU()(self.bn1(self.conv1(input)))
+        input = nn.ReLU()(self.bn2(self.conv2(input)))
+        input = input + shortcut
+        return nn.ReLU()(input)
+
+class ResNet(FederatedModel, PlModel):
+    def __init__(self, onServer: bool, trainconfig: TrainingConfig, in_channels: int=3, resblock: nn.Module=ResBlock, *args: Any, **kwargs: Any) -> None:
+        self._n_classes=trainconfig.n_classes
+        self.in_channels=in_channels
+        FederatedModel.__init__(self, trainconfig, onServer, *args, **kwargs)
+        PlModel.__init__(self, trainconfig, has_pretrained_weights=False, *args, **kwargs)
+
+        self.layer0 = nn.Sequential(
+            nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3),
+            nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU()
+        )
+        self.layer1 = nn.Sequential(
+            resblock(64, 64, downsample=False),
+            resblock(64, 64, downsample=False)
+        )
+        self.layer2 = nn.Sequential(
+            resblock(64, 128, downsample=True),
+            resblock(128, 128, downsample=False)
+        )
+        self.layer3 = nn.Sequential(
+            resblock(128, 128, downsample=False),
+            resblock(128, 128, downsample=False)
+        )
+        self.gap = torch.nn.AdaptiveAvgPool2d(1)
+        self.fc = torch.nn.Linear(128, self._n_classes)
+
+    def forward(self, input):
+        input = self.layer0(input)
+        input = self.layer1(input)
+        input = self.layer2(input)
+        input = self.layer3(input)
+        input = self.gap(input)
+        input = torch.squeeze(input)
+        input = input.view(input.size(0), 1, 128)
+        input = self.fc(input)
+        input = torch.squeeze(input)
+        return F.log_softmax(input, dim=1)
+
+    def test_step(self, batch, batch_idx) -> float:
+        return super().test_step(batch, batch_idx, self._n_classes)
+
+    def training_step(self, batch, batch_nb, optimizer_idx):
+        return super().training_step(batch, batch_nb, optimizer_idx, self._n_classes)
+
 class ResHugoNet(FederatedModel, PlModel):
     """Simple 4 layers deep CNN with residual connections"""
     def __init__(self, onServer: bool, trainconfig: TrainingConfig, in_channels: int=3, out_channels_res_block: int=128,  *args, **kwargs: Any) -> None:
@@ -143,6 +213,7 @@ class HubModel(FederatedModel, PlModel):
     def __init__(self, onServer: bool, trainconfig: TrainingConfig, pretrained: bool=True, *args: Any, **kwargs: Any) -> None:
         self._n_classes = trainconfig.n_classes
         self.alpha = trainconfig.freezing_coeff
+        print(f"[MODEL] Alpha freezing coeff {self.alpha}", file=sys.stderr)
         self.onserver = onServer
         self.pretrained = pretrained
         FederatedModel.__init__(self, trainconfig, onServer, *args, **kwargs)
@@ -152,7 +223,7 @@ class HubModel(FederatedModel, PlModel):
         
         if pretrained:
             self.feature_extractor.reset_classifier(self._n_classes)
-
+        # TODO if alpha == 1 then we freeze the entire network and reset the classifier
         if self.alpha != None:
             print(f"[MODEL] Freezing neural networks with coeff {self.alpha} ..")
             self.do_freeze()

@@ -5,8 +5,7 @@ import numpy as np
 from flwr.common import EvaluateRes
 from flwr.server.client_proxy import ClientProxy
 from datetime import *
-import os, torch, mlflow
-from flwr.server.strategy import FedAvg, FedAdam, FedYogi, FedAdagrad
+from flwr.server.strategy import FedAvg, FedAdam, FedYogi, FedAdagrad, FedAvgM, QFedAvg, FaultTolerantFedAvg
 from models import FederatedModel
 from flwr.server.strategy.fedopt import FedOpt
 from .hugostrategy import MLFlowStrategy
@@ -17,7 +16,7 @@ class CustomModelStrategyFedAvg(FedAvg, MLFlowStrategy):
     """
     def __init__(self, model: FederatedModel, registered_model_name: str, *args: Any, **kwargs: Any):
         MLFlowStrategy.__init__(self)
-        FedAvg.__init__(self, *args, **kwargs)
+        FedAvg.__init__(self , *args, **kwargs)
         self._model = model
         self._registered_model_name = registered_model_name
 
@@ -30,6 +29,9 @@ class CustomModelStrategyFedAvg(FedAvg, MLFlowStrategy):
         """Aggregate weights of clients after rounds"""
 
         aggregated_parameters_tuple = super().aggregate_fit(rnd, results, failures)
+        fit_metrics = [(res.num_examples, res.metrics) for _, res in results]
+  
+        print(f"[SERVER] Fit metrics {fit_metrics} ROUNDS {rnd}")
         aggregated_parameters, _ = aggregated_parameters_tuple
         if aggregated_parameters is not None:
             self._set_log_aggregated_weights(aggregated_parameters, rnd)
@@ -46,7 +48,7 @@ class CustomModelStrategyFedAvg(FedAvg, MLFlowStrategy):
         Print useful cumulative metrics from all clients
         """
         if not results:
-            return None
+            return None, {}
         examples = [r.num_examples for _, r in results]
         self._format_metrics(results) 
         self._log_metrics(rnd, failures, examples)

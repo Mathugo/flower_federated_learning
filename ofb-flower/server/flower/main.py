@@ -5,12 +5,13 @@ import time, sys, mlflow
 
 def main() -> None:
     """Start server and train five rounds."""
+    print("[*] Starting server ..", file=sys.stderr)
     serv = ClassificationServer(Args())
+    # finish previous run
     mlflow.end_run()
     while True:
         serv.configure_strategy()
-        # TODO start server with certificates-
-        serv.start(run_name="FedAvg-reshugonet")
+        serv.start(run_name="LrFedAvgM-efficientnetb0-10rnds")
         print("[SERVER] Strategy finished, restarting the server ..", file=sys.stderr)
         time.sleep(10)
 

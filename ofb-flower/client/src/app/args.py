@@ -24,7 +24,7 @@ class Args:
             "--name", type=str, required=True, help="Client name (no default)"
         )
         parser.add_argument(
-            "--run_name", type=str, required=True, help="name of run for mlflow (default: random_run)", default="random_run"
+            "--run_name", type=str, help="name of run for mlflow (default: random_run)", default="random_run"
         )
         parser.add_argument(
             "--log_host",
